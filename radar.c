@@ -74,7 +74,8 @@ void * radar_task(void * arg)
 
     int a = 0;
     while (!key[KEY_ESC]) 
-    {
+    {   
+        bool flag = true;
         float alpha;
 		int d = 0;
 		int x, y;
@@ -85,31 +86,24 @@ void * radar_task(void * arg)
         	x = XRAD + d * cos(alpha);
         	y = YRAD - d * sin(alpha);
         	color = getpixel(sea, x, y);
-            //r = getr(color);
-            //g = getg(color);
-            //b = getb(color);
-            //printf("%d,%d, %d\n", r, g, b);
-        	if (color != sea_color && color != 0){
-        		printf("ciao, x %d, y %d\n", x, y); 
-                circlefill(radar, x / 2, y / 2, 1, makecol(255,255,255));
 
-
+        	//if (color != sea_color && flag){
+            if (color == makecol(0,0,255)){
+                circlefill(radar, (x / 2), (y / 2), 1, makecol(255,255,255));
+                sleep(1);
+                flag = false;
         	}
 
-			//circlefill(sea, x, y, 1, 0);
-
-        	//r = getr(color);
-        	//g = getg(color);
-        	//b = getb(color);
-        	//printf("x %d, y %d\n", x, y); 
-
-
+            if (color == sea_color)
+                flag = true;
    		}
 // from the formula L = pi * r *a / 180 I can guarantee that, the circumference
 // arc len is less than the width ship in this way the ships will be always seen
         a += 2;	
-        if (a == 360)
+        if (a == 360){
             a = 0;
+            //clear_bitmap(radar);
+        }
         if (ptask_deadline_miss(id))
         {   
             printf("%d) deadline missed!\n", id);
@@ -244,7 +238,7 @@ BITMAP * back_sea_bmp;
     clear_bitmap(radar);
 
     port_bmp = load_bitmap("port.bmp", NULL);
-	ship = load_bitmap("ship.bmp", NULL);
+	ship = load_bitmap("ship_c.bmp", NULL);
 
     titanic.x       =   random_in_range(0, PORT_BMP_W);
     titanic.y       =   random_in_range(PORT_BMP_H, YWIN);
@@ -259,7 +253,7 @@ BITMAP * back_sea_bmp;
 	{ 
         //clear_bitmap(radar); //clear after a while
 		clear_to_color(sea, sea_color);
-		draw_sprite(sea, ship, (titanic.x - titanic.width /2) , titanic.y);
+		draw_sprite(sea, ship, (titanic.x - titanic.width / 2) , titanic.y);
         blit(sea, back_sea_bmp, 0, 0, 0,0,sea->w, sea->h);
         draw_sprite(back_sea_bmp, port_bmp, 0, 0);
         circle(back_sea_bmp, XPORT, YPORT, 10, 0);
