@@ -17,9 +17,14 @@
 #define FRAME_PERIOD    (1 / FPS)
 #define EPSILON         0.f        // guardian distance to the goal
 
+#define true            1
+#define false           0
 //-----------------------------------------------------------------------------
 // GLOBAL CONSTANTS related to the radar
 //------------------------------------------------------------------------------
+#define RADAR_BMP_W     225
+#define RADAR_BMP_H     225
+
 #define RMAX            450
 #define ARES            360
 #define RSTEP           10
@@ -31,9 +36,8 @@
 #define YPORT           680			//y postizion of the doow port
 #define VEL             60
 
-#define true 			1
-#define false 			0
-
+#define PORT_BMP_W      900
+#define PORT_BMP_H      900
 //-----------------------------------------------------------------------------
 // GLOBAL STRUCTURE
 //------------------------------------------------------------------------------
@@ -51,11 +55,10 @@ typedef struct SHIP
 //------------------------------------------------------------------------------
 // GLOBAL VARIABLES
 //------------------------------------------------------------------------------
-BITMAP * port_bmp;
 BITMAP * sea;
-BITMAP  * ship;
+BITMAP * radar;
 SHIP    titanic;
-int sea_color;
+int sea_color = makecol(0,85,165);
 
 //------------------------------------------------------------------------------
 // FUNCTIONS FOR RADAR
@@ -85,6 +88,7 @@ void * radar_task(void * arg)
 
         	if (color != sea_color && color != 0){
         		printf("ciao, x %d, y %d\n", x, y); 
+
 
         	}
 
@@ -215,44 +219,46 @@ void linear_movement(float xtarget_pos,float ytarget_pos, bool reg_vel)
  }
 int main()
 {
+BITMAP * port_bmp;
+BITMAP  * ship;
+
 	allegro_init();
 	install_keyboard();
 	set_color_depth(16);
 	set_gfx_mode(GFX_AUTODETECT_WINDOWED, XWIN, YWIN,0,0);
-	
-	port_bmp = load_bitmap("port.bmp", NULL);
-	sea	= create_bitmap(900, 900);
-	sea_color = makecol(0,85,165);
+    
+	sea	= create_bitmap(PORT_BMP_W, PORT_BMP_H);
+    radar = create_bitmap(RADAR_BMP_W, PORT_BMP_H);
+    ship = create_bitmap(XSHIP, YSHIP);
+
 	clear_to_color(sea, sea_color);
+    clear_bitmap(radar);
 
-	ship = create_bitmap(XSHIP, YSHIP);
+    port_bmp = load_bitmap("port.bmp", NULL);
 	ship = load_bitmap("ship.bmp", NULL);
-	BITMAP *buffer = NULL;
 
-	buffer = create_bitmap(XWIN, YWIN);
-
-    titanic.x       =   random_in_range(0, 900);
-    titanic.y       =   random_in_range(900, 680);
+    titanic.x       =   random_in_range(0, PORT_BMP_W);
+    titanic.y       =   random_in_range(PORT_BMP_H, YWIN);
     titanic.vel     =   VEL;
     titanic.width   =   ship->w;    
     titanic.height  =   ship->h;
 
 	ptask_create(radar_task, 5, 10, PRIO);
 	ptask_create(ship_task, PERIOD, DLINE, PRIO);
+
 	while(!key[KEY_ESC])
 	{
 		clear_to_color(sea, sea_color);
 		draw_sprite(sea, ship, (titanic.x - titanic.width /2) , titanic.y);
-		blit(sea, buffer, 0, 0, 0, 0, sea->w, sea->h);
-		draw_sprite(buffer, port_bmp, 0, 0);
-		circle(buffer, XPORT, YPORT, 10, 2);
-		circle(buffer,1150, 225, 225, makecol(255,255,255));
-		blit(buffer, screen, 0,0,0,0,XWIN, YWIN);
+        draw_sprite(sea, port_bmp, 0, 0);
+        circle(sea, XPORT, YPORT, 10, 0);
+        circle(radar, 1150, 225, 225, makecol(255, 255, 255));
+		blit(sea, screen, 0,0,0,0,XWIN, YWIN);
+        blit(radar, screen, 0, 0,1150, 0, radar->w, radar->h);
 
 	}
 
 	destroy_bitmap(port_bmp);
-	destroy_bitmap(buffer);
 
     return 0;
 }
