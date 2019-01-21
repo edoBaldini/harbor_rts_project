@@ -22,8 +22,8 @@
 //-----------------------------------------------------------------------------
 // GLOBAL CONSTANTS related to the radar
 //------------------------------------------------------------------------------
-#define RADAR_BMP_W     225
-#define RADAR_BMP_H     225
+#define RADAR_BMP_W     451
+#define RADAR_BMP_H     451
 
 #define RMAX            450
 #define ARES            360
@@ -58,7 +58,7 @@ typedef struct SHIP
 BITMAP * sea;
 BITMAP * radar;
 SHIP    titanic;
-int sea_color = makecol(0,85,165);
+int sea_color;
 
 //------------------------------------------------------------------------------
 // FUNCTIONS FOR RADAR
@@ -85,14 +85,18 @@ void * radar_task(void * arg)
         	x = XRAD + d * cos(alpha);
         	y = YRAD - d * sin(alpha);
         	color = getpixel(sea, x, y);
-
+            //r = getr(color);
+            //g = getg(color);
+            //b = getb(color);
+            //printf("%d,%d, %d\n", r, g, b);
         	if (color != sea_color && color != 0){
         		printf("ciao, x %d, y %d\n", x, y); 
+                circlefill(radar, x / 2, y / 2, 1, makecol(255,255,255));
 
 
         	}
 
-			circlefill(sea, x, y, 1, 0);
+			//circlefill(sea, x, y, 1, 0);
 
         	//r = getr(color);
         	//g = getg(color);
@@ -221,16 +225,21 @@ int main()
 {
 BITMAP * port_bmp;
 BITMAP  * ship;
+BITMAP * back_sea_bmp;
 
 	allegro_init();
 	install_keyboard();
 	set_color_depth(16);
 	set_gfx_mode(GFX_AUTODETECT_WINDOWED, XWIN, YWIN,0,0);
     
+    back_sea_bmp = create_bitmap(PORT_BMP_W, PORT_BMP_H);
 	sea	= create_bitmap(PORT_BMP_W, PORT_BMP_H);
     radar = create_bitmap(RADAR_BMP_W, PORT_BMP_H);
     ship = create_bitmap(XSHIP, YSHIP);
 
+    sea_color = makecol(0,85,165);
+
+    clear_bitmap(back_sea_bmp);
 	clear_to_color(sea, sea_color);
     clear_bitmap(radar);
 
@@ -247,18 +256,25 @@ BITMAP  * ship;
 	ptask_create(ship_task, PERIOD, DLINE, PRIO);
 
 	while(!key[KEY_ESC])
-	{
+	{ 
+        //clear_bitmap(radar); //clear after a while
 		clear_to_color(sea, sea_color);
 		draw_sprite(sea, ship, (titanic.x - titanic.width /2) , titanic.y);
-        draw_sprite(sea, port_bmp, 0, 0);
-        circle(sea, XPORT, YPORT, 10, 0);
-        circle(radar, 1150, 225, 225, makecol(255, 255, 255));
-		blit(sea, screen, 0,0,0,0,XWIN, YWIN);
-        blit(radar, screen, 0, 0,1150, 0, radar->w, radar->h);
+        blit(sea, back_sea_bmp, 0, 0, 0,0,sea->w, sea->h);
+        draw_sprite(back_sea_bmp, port_bmp, 0, 0);
+        circle(back_sea_bmp, XPORT, YPORT, 10, 0);
+        circle(radar, RADAR_BMP_W / 2, RADAR_BMP_H / 2, RADAR_BMP_H / 2, makecol(255, 255, 255));
+		blit(back_sea_bmp, screen, 0,0,0,0,back_sea_bmp->w, back_sea_bmp->h); //valuta se mettere XWIN, YWIN
+        blit(radar, screen, 0, 0,910, 0, radar->w, radar->h);
+
+
 
 	}
 
 	destroy_bitmap(port_bmp);
+    destroy_bitmap(ship);
+    destroy_bitmap(sea);
+    destroy_bitmap(radar);
 
     return 0;
 }
