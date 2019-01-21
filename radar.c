@@ -88,7 +88,7 @@ void * radar_task(void * arg)
         	color = getpixel(sea, x, y);
 
         	//if (color != sea_color && flag){
-            if (color == makecol(0,0,255)){
+            if (color == makecol(0,0,255) && flag){
                 circlefill(radar, (x / 2), (y / 2), 1, makecol(255,255,255));
                 sleep(1);
                 flag = false;
@@ -96,13 +96,20 @@ void * radar_task(void * arg)
 
             if (color == sea_color)
                 flag = true;
+
+            /*if (color != sea_color && flag){
+                circlefill(radar, (x / 2), (y / 2), 1, makecol(255,255,255));
+                d += 8;
+                flag = false;
+                sleep(1);
+            }*/
    		}
 // from the formula L = pi * r *a / 180 I can guarantee that, the circumference
 // arc len is less than the width ship in this way the ships will be always seen
         a += 2;	
         if (a == 360){
             a = 0;
-            //clear_bitmap(radar);
+            clear_bitmap(radar);
         }
         if (ptask_deadline_miss(id))
         {   
