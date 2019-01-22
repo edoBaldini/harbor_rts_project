@@ -27,7 +27,7 @@
 
 #define RMAX            450
 #define ARES            360
-#define RSTEP           10
+#define RSTEP           1
 #define RMIN            0
 #define XRAD            450			//x center of the radar = center of the port
 #define YRAD            450			//y center of the radar = center of the port
@@ -57,6 +57,7 @@ typedef struct SHIP
 //------------------------------------------------------------------------------
 BITMAP * sea;
 BITMAP * radar;
+BITMAP * t1;
 SHIP    titanic;
 int sea_color;
 
@@ -72,7 +73,7 @@ void * radar_task(void * arg)
     const int id = ptask_id(arg);
     ptask_activate(id);
 
-    int a = 0;
+    float a = 0;
     while (!key[KEY_ESC]) 
     {   
         bool flag = true;
@@ -81,22 +82,20 @@ void * radar_task(void * arg)
 		int x, y;
 		int r, g, b, color;
 		alpha = a * M_PI / 180.f;   // from degree to radiants
+        for( int j = 0; j < 2; j++){
     	for (d = RMIN; d < RMAX; d += RSTEP)
     	{
         	x = XRAD + d * cos(alpha);
         	y = YRAD - d * sin(alpha);
         	color = getpixel(sea, x, y);
-
         	//if (color != sea_color && flag){
             if (color == makecol(0,0,255) && flag){
-                circlefill(radar, (x / 2), (y / 2), 1, makecol(255,255,255));
-                sleep(1);
+                circlefill(radar, (x / 2), (y / 2), 3, makecol(255,255,255));
                 flag = false;
         	}
 
             if (color == sea_color)
                 flag = true;
-
             /*if (color != sea_color && flag){
                 circlefill(radar, (x / 2), (y / 2), 1, makecol(255,255,255));
                 d += 8;
@@ -105,17 +104,20 @@ void * radar_task(void * arg)
             }*/
    		}
 // from the formula L = pi * r *a / 180 I can guarantee that, the circumference
-// arc len is less than the width ship in this way the ships will be always seen
-        a += 2;	
-        if (a == 360){
-            a = 0;
+// arc len is less than the width label in this way the ships will be always seen
+        a += 1;	
+
+        if (a == 360.0){
+            a = 0.0;
             clear_bitmap(radar);
         }
+    
         if (ptask_deadline_miss(id))
         {   
             printf("%d) deadline missed!\n", id);
         }
         ptask_wait_for_activation(id);
+    }
 }
 
 return NULL;
@@ -161,7 +163,6 @@ float degree_rect(float x1, float y1, float x2, float y2)
     float angular_coefficient   = (x1 == x2) ? x1 : ((y2 - y1) / (x2 - x1));
     float degree                = atan(angular_coefficient);
     return (x2 <= x1) ? degree + M_PI  : degree + 2 * M_PI;
-    //return degree;
 }
 
 void linear_movement(float xtarget_pos,float ytarget_pos, bool reg_vel)
@@ -246,6 +247,7 @@ BITMAP * back_sea_bmp;
 
     port_bmp = load_bitmap("port.bmp", NULL);
 	ship = load_bitmap("ship_c.bmp", NULL);
+    t1 = load_bitmap("t1.bmp", NULL);
 
     titanic.x       =   random_in_range(0, PORT_BMP_W);
     titanic.y       =   random_in_range(PORT_BMP_H, YWIN);
@@ -253,14 +255,14 @@ BITMAP * back_sea_bmp;
     titanic.width   =   ship->w;    
     titanic.height  =   ship->h;
 
-	ptask_create(radar_task, 5, 10, PRIO);
+	ptask_create(radar_task, 3, 6, PRIO);
 	ptask_create(ship_task, PERIOD, DLINE, PRIO);
 
 	while(!key[KEY_ESC])
 	{ 
-        //clear_bitmap(radar); //clear after a while
 		clear_to_color(sea, sea_color);
-		draw_sprite(sea, ship, (titanic.x - titanic.width / 2) , titanic.y);
+        draw_sprite(sea, t1, 147, 259);
+		draw_sprite(sea, ship, (titanic.x - (titanic.width / 2)) , titanic.y);
         blit(sea, back_sea_bmp, 0, 0, 0,0,sea->w, sea->h);
         draw_sprite(back_sea_bmp, port_bmp, 0, 0);
         circle(back_sea_bmp, XPORT, YPORT, 10, 0);
