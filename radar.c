@@ -12,7 +12,7 @@
 #define PERIOD          40          // in ms
 #define DLINE           60
 #define PRIO            10
-
+#define MAX_SHIPS       12          // max number of ship
 #define FPS             60.0
 #define FRAME_PERIOD    (1 / FPS)
 #define EPSILON         0.f        // guardian distance to the goal
@@ -43,14 +43,15 @@
 //------------------------------------------------------------------------------
 typedef int bool;
 
-typedef struct SHIP
+typedef struct ship 
 {
     float x, y;
-    float width, height;
     float vel;
-    float bow_grade;
     float traj_grade; 
-} SHIP;
+    BITMAP * boat;
+}ship;
+
+struct ship fleet[MAX_SHIPS];
 
 //------------------------------------------------------------------------------
 // GLOBAL VARIABLES
@@ -58,8 +59,9 @@ typedef struct SHIP
 BITMAP * sea;
 BITMAP * radar;
 BITMAP * t1;
-SHIP    titanic;
 int sea_color;
+int ships_activated = 0;
+bool end = false;
 
 //------------------------------------------------------------------------------
 // FUNCTIONS FOR RADAR
@@ -72,11 +74,10 @@ void * radar_task(void * arg)
 // Task private variables
     const int id = ptask_id(arg);
     ptask_activate(id);
-
+    bool flag = true;
     float a = 0;
-    while (!key[KEY_ESC]) 
+    while (!end) 
     {   
-        bool flag = true;
         float alpha;
 		int d = 0;
 		int x, y;
@@ -88,20 +89,10 @@ void * radar_task(void * arg)
         	x = XRAD + d * cos(alpha);
         	y = YRAD - d * sin(alpha);
         	color = getpixel(sea, x, y);
-        	//if (color != sea_color && flag){
             if (color == makecol(0,0,255) && flag){
                 circlefill(radar, (x / 2), (y / 2), 3, makecol(255,255,255));
                 flag = false;
         	}
-
-            if (color == sea_color)
-                flag = true;
-            /*if (color != sea_color && flag){
-                circlefill(radar, (x / 2), (y / 2), 1, makecol(255,255,255));
-                d += 8;
-                flag = false;
-                sleep(1);
-            }*/
    		}
 // from the formula L = pi * r *a / 180 I can guarantee that, the circumference
 // arc len is less than the width label in this way the ships will be always seen
@@ -109,12 +100,15 @@ void * radar_task(void * arg)
 
         if (a == 360.0){
             a = 0.0;
+            flag = true;
             clear_bitmap(radar);
+            circle(radar, RADAR_BMP_W / 2, RADAR_BMP_H / 2, RADAR_BMP_H / 2, makecol(255, 255, 255));
+
         }
     
         if (ptask_deadline_miss(id))
         {   
-            printf("%d) deadline missed!\n", id);
+            printf("%d) deadline missed! radar\n", id);
         }
         ptask_wait_for_activation(id);
     }
@@ -160,62 +154,92 @@ float distance_vector(float x_start, float y_start, float x_target, float y_targ
 
 float degree_rect(float x1, float y1, float x2, float y2)
 {
-    float angular_coefficient   = (x1 == x2) ? x1 : ((y2 - y1) / (x2 - x1));
-    float degree                = atan(angular_coefficient);
+    float angular_coefficient = (x1 == x2) ? x1 : ((y2 - y1) / (x2 - x1));
+    float degree = atan(angular_coefficient);
     return (x2 <= x1) ? degree + M_PI  : degree + 2 * M_PI;
 }
 
-void linear_movement(float xtarget_pos,float ytarget_pos, bool reg_vel)
+float actual_vel(float x, float y, float xtarget_pos, float ytarget_pos, float s_vel)
+{
+float velx;
+float vely;
+float vel;
+
+    velx = 2 * (xtarget_pos - x) / 3;
+    vely = 2 * (ytarget_pos - y) / 3;
+    vel = (sqrtf(velx * velx + vely * vely));
+    return (fabs(vel) > s_vel) ? VEL : vel;
+}
+
+float xlinear_movement(float x, float xtarget_pos, float vel, float degree)
 {   
-    float velx;
-    float vely;
-    float vel;
+    if (fabs(x - xtarget_pos) <= EPSILON)
+        return x;
+    else
+        return (x + (vel * cos(degree) / PERIOD));
+ }
 
-    titanic.traj_grade = degree_rect(titanic.x, titanic.y, xtarget_pos, ytarget_pos);
+float ylinear_movement(float y, float ytarget_pos, float vel, float degree)
+{   
+    if (fabs(y - ytarget_pos) <= EPSILON)
+        return y;
+    else
+        return (y + (vel * sin(degree) / PERIOD));
+ }
 
-    if (reg_vel)
+ void follow_track(ship s)
+{
+    if (getpixel(t1, s.x + 1, s.y - 1 ) == 0)
     {
-        velx = 2 * (xtarget_pos - titanic.x) / 3;
-        vely = 2 * (ytarget_pos - titanic.y) / 3;
-        vel = (sqrtf(velx * velx + vely * vely));
-        titanic.vel = (fabs(vel) > VEL) ? VEL : vel;
+        //titanic.x += 1;
+        //titanic.y -= 1;
+        s.traj_grade = degree_rect(s.x, s.y, s.x +1 , s.y - 1);
+        s.x = xlinear_movement(s.x, s.x + 1, s.vel, s.traj_grade);
+        s.y = ylinear_movement(s.y, s.y - 1, s.vel, s.traj_grade);
+
     }
 
-    titanic.x = titanic.x + (titanic.vel * cos(titanic.traj_grade) / PERIOD);
-    titanic.y = titanic.y + (titanic.vel * sin(titanic.traj_grade) / PERIOD);
- }
+    if (getpixel(t1, s.x - 1, s.y - 1 ) == 0)
+    {
+        //titanic.x -= 1;
+        //titanic.y -= 1;
+        s.traj_grade = degree_rect(s.x, s.y, s.x - 1 , s.y - 1);
+        s.x = xlinear_movement(s.x, s.x - 1, s.vel, s.traj_grade);
+        s.y = ylinear_movement(s.y, s.y - 1, s.vel, s.traj_grade);    
+    }
+
+    
+}
 
  void * ship_task(void * arg)
  {
-    float route[] = {   
-                        XPORT, YPORT    
-                    };
-    bool reached[] = {
-                        false, false,
-                    };
+bool need_stop = true; // MUST BE CHANGED!!!!
+
+    printf("ciao task\n");
     // Task private variables
     const int id = ptask_id(arg);
     ptask_activate(id);
     int i = 0;
-    int len_route = 2;
-    while (!key[KEY_ESC]) {
+    while (!end) {
+        for (i = 0; i < ships_activated; i++)
+        {
+            fleet[i].traj_grade = degree_rect(fleet[i].x, fleet[i].y, XPORT, YPORT);
+
+            if (need_stop)
+                fleet[i].vel = actual_vel(fleet[i].x, fleet[i].y, XPORT, YPORT, fleet[i].vel);
+
+           fleet[i].x = xlinear_movement(fleet[i].x, XPORT, fleet[i].vel, fleet[i].traj_grade);
+           fleet[i].y = ylinear_movement(fleet[i].y, YPORT, fleet[i].vel, fleet[i].traj_grade);
+
         
-        if (i < len_route)
-        {   
-           if (!reached[i])
-            {  
-                bool need_stop = (i + 1) == (len_route - 1); 
-                linear_movement(route[i], route[i+1], need_stop);
-                reached[i] =    (fabs(route[i] - titanic.x) <= EPSILON && 
-                                 fabs(route[i+1] - titanic.y) <= EPSILON) ? true : false;
-            }
-            else
-                i = i + 2;
+        
+        fleet[i].traj_grade = 0;
         }
+        //follow_track();
 
         if (ptask_deadline_miss(id))
         {   
-            printf("%d) deadline missed!\n", id);
+            printf("%d) deadline missed! ship\n", id);
         }
         ptask_wait_for_activation(id);
 
@@ -223,61 +247,119 @@ void linear_movement(float xtarget_pos,float ytarget_pos, bool reg_vel)
 
     return NULL;
  }
-int main()
-{
-BITMAP * port_bmp;
-BITMAP  * ship;
-BITMAP * back_sea_bmp;
 
-	allegro_init();
-	install_keyboard();
-	set_color_depth(16);
-	set_gfx_mode(GFX_AUTODETECT_WINDOWED, XWIN, YWIN,0,0);
-    
+ void * display(void *arg)
+ {
+BITMAP * port_bmp;
+BITMAP * back_sea_bmp;
+int i;
+    // Task private variables
+    const int id = ptask_id(arg);
+    ptask_activate(id);
+
     back_sea_bmp = create_bitmap(PORT_BMP_W, PORT_BMP_H);
-	sea	= create_bitmap(PORT_BMP_W, PORT_BMP_H);
+    sea = create_bitmap(PORT_BMP_W, PORT_BMP_H);
     radar = create_bitmap(RADAR_BMP_W, PORT_BMP_H);
-    ship = create_bitmap(XSHIP, YSHIP);
 
     sea_color = makecol(0,85,165);
 
     clear_bitmap(back_sea_bmp);
-	clear_to_color(sea, sea_color);
+    clear_to_color(sea, sea_color);
     clear_bitmap(radar);
 
     port_bmp = load_bitmap("port.bmp", NULL);
-	ship = load_bitmap("ship_c.bmp", NULL);
     t1 = load_bitmap("t1.bmp", NULL);
 
-    titanic.x       =   random_in_range(0, PORT_BMP_W);
-    titanic.y       =   random_in_range(PORT_BMP_H, YWIN);
-    titanic.vel     =   VEL;
-    titanic.width   =   ship->w;    
-    titanic.height  =   ship->h;
+    circle(radar, RADAR_BMP_W / 2, RADAR_BMP_H / 2, RADAR_BMP_H / 2, makecol(255, 255, 255));
 
-	ptask_create(radar_task, 3, 6, PRIO);
-	ptask_create(ship_task, PERIOD, DLINE, PRIO);
+    while (!end) {
 
-	while(!key[KEY_ESC])
-	{ 
-		clear_to_color(sea, sea_color);
-        draw_sprite(sea, t1, 147, 259);
-		draw_sprite(sea, ship, (titanic.x - (titanic.width / 2)) , titanic.y);
+        clear_to_color(sea, sea_color);
+        for (i = 0; i < ships_activated; i++ )
+            pivot_sprite(sea, fleet[i].boat, fleet[i].x, fleet[i].y, fleet[i].boat-> w / 2, 0, itofix(0));
         blit(sea, back_sea_bmp, 0, 0, 0,0,sea->w, sea->h);
         draw_sprite(back_sea_bmp, port_bmp, 0, 0);
         circle(back_sea_bmp, XPORT, YPORT, 10, 0);
-        circle(radar, RADAR_BMP_W / 2, RADAR_BMP_H / 2, RADAR_BMP_H / 2, makecol(255, 255, 255));
-		blit(back_sea_bmp, screen, 0,0,0,0,back_sea_bmp->w, back_sea_bmp->h); //valuta se mettere XWIN, YWIN
+        blit(back_sea_bmp, screen, 0,0,0,0,back_sea_bmp->w, back_sea_bmp->h); //valuta se mettere XWIN, YWIN
         blit(radar, screen, 0, 0,910, 0, radar->w, radar->h);
 
+        if (ptask_deadline_miss(id))
+        {   
+            printf("%d) deadline missed! display\n", id);
+        }
+        ptask_wait_for_activation(id);
 
+    }
 
-	}
-
-	destroy_bitmap(port_bmp);
-    destroy_bitmap(ship);
+    for (i = 0; i < ships_activated; i++)
+        destroy_bitmap(fleet[i].boat);
+    
+    destroy_bitmap(port_bmp);
     destroy_bitmap(sea);
     destroy_bitmap(radar);
+
+    return NULL;
+ }
+
+void init(void)
+ {
+    allegro_init();
+    install_keyboard();
+    set_color_depth(16);
+    set_gfx_mode(GFX_AUTODETECT_WINDOWED, XWIN, YWIN,0,0);
+    
+    ptask_create(display, PERIOD, DLINE, PRIO);
+    ptask_create(radar_task, 3, 6, PRIO);
+ }
+
+void mark_label(BITMAP * boat)
+{
+
+    int color_assigned = 255 - ships_activated;
+    rectfill(boat, 5,7, 12, 14, makecol(0,0, color_assigned));
+}
+
+void init_ship()
+ {
+
+int actual_index = ships_activated + 1; 
+
+    if (actual_index <= MAX_SHIPS)
+    {
+        printf("hi new ship n* %d\n", ships_activated);
+        fleet[ships_activated].boat = create_bitmap(XSHIP, YSHIP);
+        fleet[ships_activated].boat = load_bitmap("ship_c.bmp", NULL);
+        mark_label(fleet[ships_activated].boat);
+        fleet[ships_activated].x = random_in_range(0, PORT_BMP_W);
+        fleet[ships_activated].y =   random_in_range(PORT_BMP_H, YWIN);
+        fleet[ships_activated].vel     =   VEL;
+        ships_activated += 1;
+
+        printf("random x %f y %f\n", fleet[ships_activated -1 ].x, fleet[ships_activated -1].y);
+        ptask_create(ship_task, PERIOD, DLINE, PRIO);
+    }
+ }
+
+int main()
+{
+
+char scan;
+int i;
+
+    init();
+
+    do {
+        scan = 0;
+        if (keypressed()) scan = readkey() >> 8;
+        if (scan == KEY_ENTER){
+            printf("try to create new ship\n");
+            init_ship();
+            i++;
+        }
+    } while (scan != KEY_ESC);
+
+    end = true;
+    ptask_wait_tasks();
 
     return 0;
 }
