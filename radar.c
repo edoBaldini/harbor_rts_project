@@ -12,7 +12,9 @@
 #define PERIOD          40          // in ms
 #define DLINE           60
 #define PRIO            10
-#define MAX_SHIPS       12          // max number of ship
+#define MAX_SHIPS       12          // max number of ship MUST BE LOWER THAN 30
+#define AUX_THREAD      2
+#define MAX_THREADS     32
 #define FPS             60.0
 #define FRAME_PERIOD    (1 / FPS)
 #define EPSILON         2.f        // guardian distance to the goal
@@ -85,7 +87,7 @@ void * radar_task(void * arg)
 {   
 
 // Task private variables
-bool already_check[MAX_SHIPS];
+bool already_check[MAX_THREADS];
 bool found;
 float a = 0.f;
 float alpha;
@@ -237,31 +239,28 @@ float ylinear_movement(float y, float ytarget_pos, float vel, float degree)
  void * ship_task(void * arg)
  {
 bool need_stop = true; // MUST BE CHANGED!!!!
-
+int ship_id;
     // Task private variables
     const int id = ptask_id(arg);
     ptask_activate(id);
+    ship_id = id - AUX_THREAD;
     printf("ciao sono la nave %d\n", id);
-
     int i = 0;
+
     while (!end) {
-        for (i = 0; i < ships_activated; i++)
-        {
-            fleet[i].traj_grade = degree_rect(fleet[i].x, fleet[i].y, 
+
+        fleet[ship_id].traj_grade = degree_rect(fleet[ship_id].x, fleet[ship_id].y, 
                                                 XPORT, YPORT);
 
-            if (need_stop)
-                fleet[i].vel = actual_vel(fleet[i].x, fleet[i].y, 
-                                            XPORT, YPORT, fleet[i].vel);
+        if (need_stop)
+            fleet[i].vel = actual_vel(fleet[ship_id].x, fleet[ship_id].y, 
+                                            XPORT, YPORT, fleet[ship_id].vel);
 
-            //fleet[i].x = xlinear_movement(fleet[i].x, XPORT, fleet[i].vel, fleet[i].traj_grade);
-           fleet[i].y = ylinear_movement(fleet[i].y, YGUARD_POS, fleet[i].vel, 
-                                            fleet[i].traj_grade);
+        //fleet[i].x = xlinear_movement(fleet[i].x, XPORT, fleet[i].vel, fleet[i].traj_grade);
+       fleet[ship_id].y = ylinear_movement(fleet[ship_id].y, YGUARD_POS, fleet[ship_id].vel, 
+                                            fleet[ship_id].traj_grade);
 
-        
-        
-        fleet[i].traj_grade = 0;
-        }
+        fleet[ship_id].traj_grade = 0;
         //follow_track();
 
         if (ptask_deadline_miss(id))
@@ -301,7 +300,7 @@ int i;
 
     while (!end) {
 
-        //clear_to_color(sea, sea_color);
+        clear_to_color(sea, sea_color);
         for (i = 0; i < ships_activated; i++ )
             pivot_sprite(sea, fleet[i].boat, fleet[i].x, fleet[i].y, 
                             fleet[i].boat-> w / 2, 0, itofix(0));
@@ -354,7 +353,6 @@ void init_ship()
  {
 
 int actual_index = ships_activated + 1; 
-
     if (actual_index <= MAX_SHIPS)
     {
         printf("hi new ship n* %d\n", ships_activated);
@@ -376,6 +374,12 @@ int main()
 
 char scan;
 int i;
+    if (MAX_SHIPS + AUX_THREAD > MAX_THREADS)
+    {
+        printf("too many ships! The max number of ships + the auxiliar thread"
+        " must be lower than max number of thread (32)\n");
+        return 0;
+    }
 
     init();
 
