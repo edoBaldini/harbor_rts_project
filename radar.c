@@ -95,8 +95,8 @@ int d = 0;
 int x, y, j;
 int color;
 int r_col = makecol(255, 255, 255);
-const int id = ptask_id(arg);
-    ptask_activate(id);
+const int id = get_task_index(arg);
+    set_activation(id);
     init_flag(already_check, false);
 
     while (!end) 
@@ -130,11 +130,11 @@ const int id = ptask_id(arg);
             circle(radar, R_BMP_W / 2, R_BMP_H / 2, R_BMP_H / 2, r_col);
         }
     
-        if (ptask_deadline_miss(id))
+        if (deadline_miss(id))
         {   
             printf("%d) deadline missed! radar\n", id);
         }
-        ptask_wait_for_activation(id);
+        wait_for_activation(id);
     }
 
 return NULL;
@@ -241,8 +241,8 @@ float ylinear_movement(float y, float ytarget_pos, float vel, float degree)
 bool need_stop = true; // MUST BE CHANGED!!!!
 int ship_id;
     // Task private variables
-    const int id = ptask_id(arg);
-    ptask_activate(id);
+    const int id = get_task_index(arg);
+    set_activation(id);
     ship_id = id - AUX_THREAD;
     int i = 0;
 
@@ -262,11 +262,11 @@ int ship_id;
         fleet[ship_id].traj_grade = 0;
         //follow_track();
 
-        if (ptask_deadline_miss(id))
+        if (deadline_miss(id))
         {   
             printf("%d) deadline missed! ship\n", id);
         }
-        ptask_wait_for_activation(id);
+        wait_for_activation(id);
 
     }
 
@@ -279,8 +279,8 @@ BITMAP * port_bmp;
 BITMAP * back_sea_bmp;
 int i;
     // Task private variables
-    const int id = ptask_id(arg);
-    ptask_activate(id);
+    const int id = get_task_index(arg);
+    set_activation(id);
 
     back_sea_bmp = create_bitmap(PORT_BMP_W, PORT_BMP_H);
     sea = create_bitmap(PORT_BMP_W, PORT_BMP_H);
@@ -310,11 +310,11 @@ int i;
         blit(back_sea_bmp, screen, 0,0,0,0,back_sea_bmp->w, back_sea_bmp->h); 
         blit(radar, screen, 0, 0,910, 0, radar->w, radar->h);
 
-        if (ptask_deadline_miss(id))
+        if (deadline_miss(id))
         {   
             printf("%d) deadline missed! display\n", id);
         }
-        ptask_wait_for_activation(id);
+        wait_for_activation(id);
 
     }
 
@@ -335,8 +335,8 @@ void init(void)
     set_color_depth(16);
     set_gfx_mode(GFX_AUTODETECT_WINDOWED, XWIN, YWIN,0,0);
     
-    ptask_create(display, PERIOD, DLINE, PRIO);
-    ptask_create(radar_task, 3, 6, PRIO);
+    task_create(display, PERIOD, DLINE, PRIO);
+    task_create(radar_task, 3, 6, PRIO);
  }
 
 void mark_label(BITMAP * boat)
@@ -364,7 +364,7 @@ int actual_index = ships_activated + 1;
         fleet[ships_activated].vel     =   VEL;
         ships_activated += 1;
 
-        ptask_create(ship_task, PERIOD, DLINE, PRIO);
+        task_create(ship_task, PERIOD, DLINE, PRIO);
     }
  }
 
@@ -393,7 +393,7 @@ int i;
     } while (scan != KEY_ESC);
 
     end = true;
-    ptask_wait_tasks();
+    wait_tasks();
 
     return 0;
 }
