@@ -5,7 +5,7 @@
 #include <pthread.h>
 #include "ptask.h"
 
-#define XWIN            1400        // width monitor
+#define XWIN			1400		// width monitor
 #define YWIN            680        	// height monitor
 #define	XSHIP			18			// width dimension of the ship	
 #define YSHIP			54			// height dimension of the ship
@@ -102,8 +102,8 @@ const int id = get_task_index(arg);
     while (!end) 
     {   
 
-	   alpha = a * M_PI / 180.f;   // from degree to radiants
-        for (d = RMIN; d < RMAX; d += RSTEP)
+		alpha = a * M_PI / 180.f;   // from degree to radiants
+		for (d = RMIN; d < RMAX; d += RSTEP)
         {
         	x = XRAD + d * cos(alpha);
         	y = YRAD - d * sin(alpha);

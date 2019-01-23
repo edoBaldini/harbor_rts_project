@@ -2,6 +2,8 @@
 #include <pthread.h>
 #include <sched.h>
 #include <assert.h>
+#include <time.h>
+
 
 #define NT (32)
 
@@ -60,7 +62,7 @@ int task_create(void * (*task_handler)(void *), int period, int drel,
 
     tp[id].id = id;
     tp[id].period = period;
-    tp[id].deadline = derel;
+    tp[id].deadline = drel;
     tp[id].priority = prio;
     tp[id].dmiss = 0;   //return 0 on success otherwhise an error number
 
