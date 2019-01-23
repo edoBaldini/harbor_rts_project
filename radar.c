@@ -6,7 +6,7 @@
 #include "ptask.h"
 
 #define XWIN            1400        // width monitor
-#define YWIN            730        	// height monitor
+#define YWIN            680        	// height monitor
 #define	XSHIP			18			// width dimension of the ship	
 #define YSHIP			54			// height dimension of the ship
 #define PERIOD          40          // in ms
@@ -15,7 +15,7 @@
 #define MAX_SHIPS       12          // max number of ship
 #define FPS             60.0
 #define FRAME_PERIOD    (1 / FPS)
-#define EPSILON         0.f        // guardian distance to the goal
+#define EPSILON         2.f        // guardian distance to the goal
 
 #define true            1
 #define false           0
@@ -32,8 +32,9 @@
 #define XRAD            450			//x center of the radar = center of the port
 #define YRAD            450			//y center of the radar = center of the port
 
+#define YGUARD_POS       600
 #define XPORT           450			//x position of the door port
-#define YPORT           680			//y postizion of the doow port
+#define YPORT           505			//y postizion of the doow port
 #define VEL             60
 
 #define PORT_BMP_W      900
@@ -67,43 +68,63 @@ bool end = false;
 // FUNCTIONS FOR RADAR
 //------------------------------------------------------------------------------
 
+bool check_ship(int j, int color)
+{
+    int  actual_color = 255 - (j * 10);
+    return color == makecol(0,0, actual_color);
+}
+
+void init_flag(int array[MAX_SHIPS], bool target)
+{
+int i;
+    for (i = 0; i <= ships_activated; i++)
+        array[i] = target;
+}
+
 void * radar_task(void * arg)
 {   
-	//int radar_bmp = create_bitmap()
 
 // Task private variables
     const int id = ptask_id(arg);
     ptask_activate(id);
-    bool flag = true;
-    float a = 0;
+    bool already_check[MAX_SHIPS];
+    bool found;
+    init_flag(already_check, false);
+    float a = 0.f;
+    float alpha;
+    int d = 0;
+    int x, y, j;
+    int color;
     while (!end) 
     {   
-        float alpha;
-		int d = 0;
-		int x, y;
-		int r, g, b, color;
-		alpha = a * M_PI / 180.f;   // from degree to radiants
-        for( int j = 0; j < 2; j++){
-    	for (d = RMIN; d < RMAX; d += RSTEP)
-    	{
+
+	   alpha = a * M_PI / 180.f;   // from degree to radiants
+        for (d = RMIN; d < RMAX; d += RSTEP)
+        {
         	x = XRAD + d * cos(alpha);
         	y = YRAD - d * sin(alpha);
         	color = getpixel(sea, x, y);
-            if (color == makecol(0,0,255) && flag){
-                circlefill(radar, (x / 2), (y / 2), 3, makecol(255,255,255));
-                flag = false;
-        	}
-   		}
+
+            for (j = 0; j <= ships_activated; j++)
+            {
+                found = check_ship(j, color);
+
+                if (found && !already_check[j])
+                {
+                    circlefill(radar, (x / 2), (y / 2), 3, makecol(255,255,255));
+                    already_check[j] = true;
+        	   }
+            }
+        }
 // from the formula L = pi * r *a / 180 I can guarantee that, the circumference
 // arc len is less than the width label in this way the ships will be always seen
         a += 1;	
-
-        if (a == 360.0){
+        if (a == 360.0)
+        {
             a = 0.0;
-            flag = true;
+            init_flag(already_check, false);
             clear_bitmap(radar);
             circle(radar, RADAR_BMP_W / 2, RADAR_BMP_H / 2, RADAR_BMP_H / 2, makecol(255, 255, 255));
-
         }
     
         if (ptask_deadline_miss(id))
@@ -112,7 +133,6 @@ void * radar_task(void * arg)
         }
         ptask_wait_for_activation(id);
     }
-}
 
 return NULL;
 }
@@ -228,8 +248,8 @@ bool need_stop = true; // MUST BE CHANGED!!!!
             if (need_stop)
                 fleet[i].vel = actual_vel(fleet[i].x, fleet[i].y, XPORT, YPORT, fleet[i].vel);
 
-           fleet[i].x = xlinear_movement(fleet[i].x, XPORT, fleet[i].vel, fleet[i].traj_grade);
-           fleet[i].y = ylinear_movement(fleet[i].y, YPORT, fleet[i].vel, fleet[i].traj_grade);
+           //fleet[i].x = xlinear_movement(fleet[i].x, XPORT, fleet[i].vel, fleet[i].traj_grade);
+           fleet[i].y = ylinear_movement(fleet[i].y, YGUARD_POS, fleet[i].vel, fleet[i].traj_grade);
 
         
         
@@ -315,8 +335,10 @@ void init(void)
 void mark_label(BITMAP * boat)
 {
 
-    int color_assigned = 255 - ships_activated;
+    int color_assigned = 255 - (ships_activated * 10);
     rectfill(boat, 5,7, 12, 14, makecol(0,0, color_assigned));
+    printf("color assigned %d\n", makecol(0,0, color_assigned));
+
 }
 
 void init_ship()
