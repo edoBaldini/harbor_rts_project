@@ -244,11 +244,10 @@ int ship_id;
     const int id = ptask_id(arg);
     ptask_activate(id);
     ship_id = id - AUX_THREAD;
-    printf("ciao sono la nave %d\n", id);
     int i = 0;
 
     while (!end) {
-
+        
         fleet[ship_id].traj_grade = degree_rect(fleet[ship_id].x, fleet[ship_id].y, 
                                                 XPORT, YPORT);
 
