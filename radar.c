@@ -13,7 +13,6 @@
 #define DLINE           60
 #define PRIO            10
 #define MAX_SHIPS       12          // max number of ship MUST BE LOWER THAN 30
-#define AUX_THREAD      2
 #define MAX_THREADS     32
 #define FPS             60.0
 #define FRAME_PERIOD    (1 / FPS)
@@ -54,8 +53,15 @@ typedef struct ship
     BITMAP * boat;
 }ship;
 
-struct ship fleet[MAX_SHIPS];
+typedef struct route
+{
+	BITMAP * trace;
+	float x, y; 
+}route;
 
+
+struct ship fleet[MAX_SHIPS];
+struct route routes[MAX_SHIPS];
 //------------------------------------------------------------------------------
 // GLOBAL VARIABLES
 //------------------------------------------------------------------------------
@@ -65,6 +71,8 @@ BITMAP * t1;
 int sea_color;
 int ships_activated = 0;
 bool end = false;
+bool sem = true;
+int aux_thread = 0;
 
 //------------------------------------------------------------------------------
 // FUNCTIONS FOR RADAR
@@ -76,18 +84,10 @@ bool check_ship(int j, int color)
     return color == makecol(0,0, actual_color);
 }
 
-void init_flag(int array[MAX_SHIPS], bool target)
-{
-int i;
-    for (i = 0; i <= ships_activated; i++)
-        array[i] = target;
-}
-
 void * radar_task(void * arg)
 {   
 
 // Task private variables
-bool already_check[MAX_THREADS];
 bool found;
 float a = 0.f;
 float alpha;
@@ -97,11 +97,9 @@ int color;
 int r_col = makecol(255, 255, 255);
 const int id = get_task_index(arg);
     set_activation(id);
-    init_flag(already_check, false);
 
     while (!end) 
     {   
-
 		alpha = a * M_PI / 180.f;   // from degree to radiants
 		for (d = RMIN; d < RMAX; d += RSTEP)
         {
@@ -112,10 +110,9 @@ const int id = get_task_index(arg);
             {
                 found = check_ship(j, color);
 
-                if (found && !already_check[j])
+                if (found)
                 {
-                    circlefill(radar, (x / 2), (y / 2), 3, r_col);
-                    already_check[j] = true;
+                    putpixel(radar, (x / 2), (y / 2), r_col);
         	   }
             }
         }
@@ -125,7 +122,6 @@ const int id = get_task_index(arg);
         if (a == 360.0)
         {
             a = 0.0;
-            init_flag(already_check, false);
             clear_bitmap(radar);
             circle(radar, R_BMP_W / 2, R_BMP_H / 2, R_BMP_H / 2, r_col);
         }
@@ -240,27 +236,26 @@ float ylinear_movement(float y, float ytarget_pos, float vel, float degree)
  {
 bool need_stop = true; // MUST BE CHANGED!!!!
 int ship_id;
+ship * myship;
+route * myroute;
     // Task private variables
     const int id = get_task_index(arg);
     set_activation(id);
-    ship_id = id - AUX_THREAD;
-    int i = 0;
-
-    while (!end) {
-        
-        fleet[ship_id].traj_grade = degree_rect(fleet[ship_id].x, fleet[ship_id].y, 
-                                                XPORT, YPORT);
-
-        if (need_stop)
-            fleet[i].vel = actual_vel(fleet[ship_id].x, fleet[ship_id].y, 
-                                            XPORT, YPORT, fleet[ship_id].vel);
-
-        //fleet[i].x = xlinear_movement(fleet[i].x, XPORT, fleet[i].vel, fleet[i].traj_grade);
-       fleet[ship_id].y = ylinear_movement(fleet[ship_id].y, YGUARD_POS, fleet[ship_id].vel, 
-                                            fleet[ship_id].traj_grade);
-
-        fleet[ship_id].traj_grade = 0;
-        //follow_track();
+    ship_id = id - aux_thread;
+    myship = &fleet[ship_id];
+    myroute = &routes[ship_id];
+    while (!end) 
+    {
+    	if (myroute.trace == NULL)
+    	{
+    		myship-> traj_grade = degree_rect(myship-> x, myship-> y, 
+                                                myroute-> x, myroute-> y);
+        	myship-> x = xlinear_movement(myship-> x, myroute-> x, myship-> vel, 
+        										myship-> traj_grade);
+   			myship-> y = ylinear_movement(myship-> y, myroute-> y, myship-> vel, 
+        										myship-> traj_grade);
+    	}
+    	else
 
         if (deadline_miss(id))
         {   
@@ -272,6 +267,83 @@ int ship_id;
 
     return NULL;
  }
+
+bool check_spec_position(int id, float x, float y)
+{
+	return fabs(fleet[id].x - x) <= EPSILON &&
+			fabs(fleet[id].y - y) <= EPSILON;
+}
+
+bool check_position(int id)
+{
+	return fabs(fleet[id].x - routes[id].x) <= EPSILON &&
+			fabs(fleet[id].y - routes[id].y) <= EPSILON;
+}
+
+ bool try_access_port(bool access_port)
+ {
+ int j;
+ 	if (access_port)
+ 	{
+ 	for (j = 0; j < ships_activated; ++j)
+        {
+        	if (fabs(YGUARD_POS - fleet[j].y) <= EPSILON && access_port)
+        	{
+        		routes[j].y = YPORT;
+        		routes[j].x = XPORT;
+        		return false;
+        	}
+        }
+    }
+    return access_port;
+ }
+
+void * controller_task(void *arg)
+{
+int i, j;
+int id_ship;
+bool access_port = true;
+bool access_route = false;
+bool free_places[13];
+
+const int id = get_task_index(arg);
+	set_activation(id);
+
+	for (j = 0; j < 13; j++)
+		free_places[j] = true;
+
+    while (!end) {
+        access_port = try_access_port(access_port);
+        if (!access_port)
+        {
+        	for(i = 0; i  < ships_activated; ++i)
+        	{
+        		if (check_spec_position(i, XPORT, YPORT))
+        			routes[i].trace = t1;
+
+        	}
+        }
+
+
+
+       /* if (id_ship >= 0 && check_position(id_ship))
+        {
+        	access_port = false;
+        	routes[id_ship].x = XPORT + 200;
+        	routes[id_ship].y = YPORT - 200;
+
+        }*/
+        if (deadline_miss(id))
+        {   
+            printf("%d) deadline missed! ship\n", id);
+        }
+        wait_for_activation(id);
+
+    }
+
+    return NULL;
+}
+
 
  void * display(void *arg)
  {
@@ -330,13 +402,18 @@ int i;
 
 void init(void)
  {
+
     allegro_init();
     install_keyboard();
     set_color_depth(16);
     set_gfx_mode(GFX_AUTODETECT_WINDOWED, XWIN, YWIN,0,0);
-    
     task_create(display, PERIOD, DLINE, PRIO);
+    aux_thread ++;
     task_create(radar_task, 3, 6, PRIO);
+    aux_thread ++;
+    task_create(controller_task, PERIOD, DLINE, PRIO);
+    aux_thread ++;
+
  }
 
 void mark_label(BITMAP * boat)
@@ -362,6 +439,10 @@ int actual_index = ships_activated + 1;
         fleet[ships_activated].x = (ships_activated * 55 + 150) % PORT_BMP_W;
         fleet[ships_activated].y =   random_in_range(PORT_BMP_H, YWIN);
         fleet[ships_activated].vel     =   VEL;
+
+        routes[ships_activated].trace = NULL;
+        routes[ships_activated].x = fleet[ships_activated].x;
+        routes[ships_activated].y = YGUARD_POS;
         ships_activated += 1;
 
         task_create(ship_task, PERIOD, DLINE, PRIO);
@@ -373,7 +454,7 @@ int main()
 
 char scan;
 int i;
-    if (MAX_SHIPS + AUX_THREAD > MAX_THREADS)
+    if (MAX_SHIPS + aux_thread > MAX_THREADS)
     {
         printf("too many ships! The max number of ships + the auxiliar thread"
         " must be lower than max number of thread (32)\n");
