@@ -36,7 +36,7 @@
 #define YGUARD_POS      600
 #define XPORT           450			//x position of the door port
 #define YPORT           505			//y postizion of the doow port
-#define VEL             60
+#define VEL             100
 
 #define PORT_BMP_W      900
 #define PORT_BMP_H      900
@@ -173,10 +173,11 @@ float distance_vector(float x_start, float y_start,
 }
 
 float degree_rect(float x1, float y1, float x2, float y2)
-{
+{	
     float angular_coefficient = (x1 == x2) ? x1 : ((y2 - y1) / (x2 - x1));
-    float degree = atan(angular_coefficient);
+    float degree = atanf(angular_coefficient);
     return (x2 <= x1) ? degree + M_PI  : degree + 2 * M_PI;
+
 }
 
 float actual_vel(float x, float y, 
@@ -186,10 +187,10 @@ float velx;
 float vely;
 float vel;
 
-    velx = 2 * (xtarget_pos - x) / 3;
-    vely = 2 * (ytarget_pos - y) / 3;
+    velx = 2 * (xtarget_pos - x);
+    vely = 2 * (ytarget_pos - y);
     vel = (sqrtf(velx * velx + vely * vely));
-    return (fabs(vel) > s_vel) ? VEL : vel;
+    return (fabs(vel) > s_vel) ? s_vel : vel;
 }
 
 float xlinear_movement(float x, float xtarget_pos, float vel, float degree)
@@ -208,33 +209,41 @@ float ylinear_movement(float y, float ytarget_pos, float vel, float degree)
         return (y + (vel * sin(degree) / PERIOD));
  }
 
- void follow_track(ship s)
-{
-    if (getpixel(t1, s.x + 1, s.y - 1 ) == 0)
-    {
-        //titanic.x += 1;
-        //titanic.y -= 1;
-        s.traj_grade = degree_rect(s.x, s.y, s.x +1 , s.y - 1);
-        s.x = xlinear_movement(s.x, s.x + 1, s.vel, s.traj_grade);
-        s.y = ylinear_movement(s.y, s.y - 1, s.vel, s.traj_grade);
+ void follow_track(int i)
+{	
+float a = 0;
+float d;
+float alpha;
+int color;
+float x,y;
+	
+	while (a < 180)
+	{
+		alpha = a * M_PI / 180.f;
+		for(d = 60; d > 0; d -= 6)
+		{
+			x = fleet[i].x + d * cosf(alpha);
+        	y = fleet[i].y - d * sinf(alpha);
+        	color = getpixel(t1, x, y);
+        	if (color != 63519)
+        	{
+        		fleet[i].traj_grade = degree_rect(fleet[i].x, fleet[i].y, x,y);
+        		fleet[i].vel = 0.05;
+        		fleet[i].x = xlinear_movement(fleet[i].x, x, fleet[i].vel, fleet[i].traj_grade);
+        		fleet[i].y = ylinear_movement(fleet[i].y, y, fleet[i].vel, fleet[i].traj_grade);
+        		d = 0;
+        	}
 
-    }
+		}
+		a += 0.02;
 
-    if (getpixel(t1, s.x - 1, s.y - 1 ) == 0)
-    {
-        //titanic.x -= 1;
-        //titanic.y -= 1;
-        s.traj_grade = degree_rect(s.x, s.y, s.x - 1 , s.y - 1);
-        s.x = xlinear_movement(s.x, s.x - 1, s.vel, s.traj_grade);
-        s.y = ylinear_movement(s.y, s.y - 1, s.vel, s.traj_grade);    
-    }
-
-    
+	}
 }
 
  void * ship_task(void * arg)
  {
 bool need_stop = true; // MUST BE CHANGED!!!!
+int i,y,x;
 int ship_id;
 ship * myship;
 route * myroute;
@@ -246,7 +255,7 @@ route * myroute;
     myroute = &routes[ship_id];
     while (!end) 
     {
-    	if (myroute.trace == NULL)
+    	if (myroute-> trace == NULL)
     	{
     		myship-> traj_grade = degree_rect(myship-> x, myship-> y, 
                                                 myroute-> x, myroute-> y);
@@ -255,7 +264,45 @@ route * myroute;
    			myship-> y = ylinear_movement(myship-> y, myroute-> y, myship-> vel, 
         										myship-> traj_grade);
     	}
-    	else
+
+    	else 
+    		follow_track(ship_id);
+    	/*else{
+    		x = 0;
+    		y = 0;
+    		for(i = 20; i > 0; --i)
+    		{	
+    			if (getpixel(t1, myship-> x, myship-> y- i) == 0)
+    				y++;
+    			if (getpixel(t1, myship-> x - i, myship-> y) == 0)
+    				x++;
+    		}
+
+    		if (x != 0 || y != 0){
+    			myship-> traj_grade = degree_rect(myship-> x, myship-> y, x, y);
+    			if (y!=0)
+    		   		myship-> y = ylinear_movement(myship-> y, y, myship-> vel, 
+        										myship-> traj_grade);
+    			if (x != 0)
+    				myship-> x = xlinear_movement(myship-> x, x, myship-> vel, 
+        										myship-> traj_grade);
+
+    			printf("angolo %f\n", myship->traj_grade);
+    		}*/
+    		/*if (getpixel(t1, myship-> x - 30, myship-> y-10) != 63519)
+    		{
+    			printf("mi sposto a sinistra\n");
+    			myship-> y = ylinear_movement(myship-> y, myship-> y - 3, myship-> vel, 
+        										myship-> traj_grade);
+    			myship-> x = xlinear_movement(myship-> x, myship-> x - 3, myship-> vel, 
+        										myship-> traj_grade);
+    		}
+    		else {
+    			printf("vado su\n");
+    			myship-> y = ylinear_movement(myship-> y, myship-> y - 3, myship-> vel, 
+        										myship-> traj_grade);
+    		}*/
+    	//}
 
         if (deadline_miss(id))
         {   
@@ -301,7 +348,6 @@ bool check_position(int id)
 void * controller_task(void *arg)
 {
 int i, j;
-int id_ship;
 bool access_port = true;
 bool access_route = false;
 bool free_places[13];
@@ -318,8 +364,10 @@ const int id = get_task_index(arg);
         {
         	for(i = 0; i  < ships_activated; ++i)
         	{
-        		if (check_spec_position(i, XPORT, YPORT))
+        		if (check_spec_position(i, XPORT, YPORT)){
+        			fleet[i].traj_grade = (- M_PI / 2);
         			routes[i].trace = t1;
+        		}
 
         	}
         }
@@ -344,7 +392,11 @@ const int id = get_task_index(arg);
     return NULL;
 }
 
-
+float degree_fix(float grade)
+{
+	int new_grade = (grade > 0 ? grade : (2 * M_PI + grade)) * 360 / (2 * M_PI); //from radiants to degree 360
+    return (new_grade * 256 / 360);
+}
  void * display(void *arg)
  {
 BITMAP * port_bmp;
@@ -374,10 +426,11 @@ int i;
         clear_to_color(sea, sea_color);
         for (i = 0; i < ships_activated; i++ )
             pivot_sprite(sea, fleet[i].boat, fleet[i].x, fleet[i].y, 
-                            fleet[i].boat-> w / 2, 0, itofix(0));
+                            fleet[i].boat-> w / 2, 0, ftofix(degree_fix(fleet[i].traj_grade)+64));
 
         blit(sea, back_sea_bmp, 0, 0, 0,0,sea->w, sea->h);
         draw_sprite(back_sea_bmp, port_bmp, 0, 0);
+        draw_sprite(back_sea_bmp, t1, 0,0);
         circle(back_sea_bmp, XPORT, YPORT, 10, 0);
         blit(back_sea_bmp, screen, 0,0,0,0,back_sea_bmp->w, back_sea_bmp->h); 
         blit(radar, screen, 0, 0,910, 0, radar->w, radar->h);
@@ -437,8 +490,8 @@ int actual_index = ships_activated + 1;
         mark_label(fleet[ships_activated].boat);
         //fleet[ships_activated].x = random_in_range(0, PORT_BMP_W);
         fleet[ships_activated].x = (ships_activated * 55 + 150) % PORT_BMP_W;
-        fleet[ships_activated].y =   random_in_range(PORT_BMP_H, YWIN);
-        fleet[ships_activated].vel     =   VEL;
+        fleet[ships_activated].y = random_in_range(PORT_BMP_H, YWIN);
+        fleet[ships_activated].vel = VEL;
 
         routes[ships_activated].trace = NULL;
         routes[ships_activated].x = fleet[ships_activated].x;
