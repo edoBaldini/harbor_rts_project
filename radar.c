@@ -59,9 +59,15 @@ typedef struct route
 	float x, y; 
 }route;
 
+typedef struct pair
+{
+    float x, y;
+}pair;
+
 
 struct ship fleet[MAX_SHIPS];
 struct route routes[MAX_SHIPS];
+struct pair trace[PORT_BMP_W * PORT_BMP_H];
 //------------------------------------------------------------------------------
 // GLOBAL VARIABLES
 //------------------------------------------------------------------------------
@@ -155,6 +161,37 @@ int r, g, b, c;
     }
 }
 
+pair make_pair(int x, int y)
+{
+    pair coordinates;
+    coordinates.x = x;
+    coordinates.y = y;
+    return coordinates;
+}
+
+void make_array_trace(pair trace[PORT_BMP_W * PORT_BMP_H])
+{
+int index = 0;
+    for (int i = 0; i < PORT_BMP_W; ++i)
+
+    {
+    	for (int j = PORT_BMP_H; j > 0; --j)    
+
+    	{
+    		int color = getpixel(t1, i, j);
+
+     	   if (color == 0)
+     	   {
+      		  trace[index] = make_pair(i,j);
+      	      index ++;
+
+
+       		}
+
+   		}
+    }
+}
+
 //------------------------------------------------------------------------------
 // FUNCTIONS FOR SHIPS
 //------------------------------------------------------------------------------
@@ -240,22 +277,33 @@ float x,y;
 	}
 }
 
+
  void * ship_task(void * arg)
  {
+
 bool need_stop = true; // MUST BE CHANGED!!!!
 int i,y,x;
 int ship_id;
+int index = 0;
+int acc;
+float objective;
+int prev_index = 0;
+float prev_grade;
 ship * myship;
 route * myroute;
+
     // Task private variables
     const int id = get_task_index(arg);
     set_activation(id);
     ship_id = id - aux_thread;
     myship = &fleet[ship_id];
-    myroute = &routes[ship_id];
+    myroute = &routes[ship_id]; 
+    myship->x = trace[0].x;
+    myship->y = trace[0].y;   
     while (!end) 
     {
-    	if (myroute-> trace == NULL)
+    	
+    	/*if (myroute-> trace == NULL)
     	{
     		myship-> traj_grade = degree_rect(myship-> x, myship-> y, 
                                                 myroute-> x, myroute-> y);
@@ -266,44 +314,25 @@ route * myroute;
     	}
 
     	else 
-    		follow_track(ship_id);
-    	/*else{
-    		x = 0;
-    		y = 0;
-    		for(i = 20; i > 0; --i)
-    		{	
-    			if (getpixel(t1, myship-> x, myship-> y- i) == 0)
-    				y++;
-    			if (getpixel(t1, myship-> x - i, myship-> y) == 0)
-    				x++;
-    		}
-
-    		if (x != 0 || y != 0){
-    			myship-> traj_grade = degree_rect(myship-> x, myship-> y, x, y);
-    			if (y!=0)
-    		   		myship-> y = ylinear_movement(myship-> y, y, myship-> vel, 
-        										myship-> traj_grade);
-    			if (x != 0)
-    				myship-> x = xlinear_movement(myship-> x, x, myship-> vel, 
-        										myship-> traj_grade);
-
-    			printf("angolo %f\n", myship->traj_grade);
-    		}*/
-    		/*if (getpixel(t1, myship-> x - 30, myship-> y-10) != 63519)
-    		{
-    			printf("mi sposto a sinistra\n");
-    			myship-> y = ylinear_movement(myship-> y, myship-> y - 3, myship-> vel, 
-        										myship-> traj_grade);
-    			myship-> x = xlinear_movement(myship-> x, myship-> x - 3, myship-> vel, 
-        										myship-> traj_grade);
-    		}
-    		else {
-    			printf("vado su\n");
-    			myship-> y = ylinear_movement(myship-> y, myship-> y - 3, myship-> vel, 
-        										myship-> traj_grade);
-    		}*/
+    	{*/ 
+    		myship-> vel = 100.0;
+    	    objective =  myship-> vel * FRAME_PERIOD; //sqrtf((myship-> x * myship-> x) + (myship->y * myship-> y)) + myship-> vel * PERIOD * FRAME_PERIOD;
+    	    printf("objective %f\n", objective);
+    	    for (i = index; i < PORT_BMP_W * PORT_BMP_H; i++)
+    	    { 
+    	    	acc = distance_vector(myship-> x, myship-> y, trace[i].x, trace[i].y);//sqrtf((trace[i].x * trace[i].x) + (trace[i].y * trace[i]. y));
+    	    	if ( acc >= objective)
+    	    	{
+    	    		myship->x = trace[i].x;
+    				myship->y = trace[i].y;
+    				myship-> traj_grade = degree_rect(trace[i].x, trace[i].y, trace[i + 5].x, trace[i + 5].y);//degree_rect(myship-> x, myship-> y, trace[i].x, trace[i].y);//;
+    				index = i;
+    				i = PORT_BMP_W * PORT_BMP_H;
+    				acc = 0;
+    	    	}
+    	    }
     	//}
-
+	
         if (deadline_miss(id))
         {   
             printf("%d) deadline missed! ship\n", id);
@@ -372,15 +401,6 @@ const int id = get_task_index(arg);
         	}
         }
 
-
-
-       /* if (id_ship >= 0 && check_position(id_ship))
-        {
-        	access_port = false;
-        	routes[id_ship].x = XPORT + 200;
-        	routes[id_ship].y = YPORT - 200;
-
-        }*/
         if (deadline_miss(id))
         {   
             printf("%d) deadline missed! ship\n", id);
@@ -417,10 +437,10 @@ int i;
     clear_bitmap(radar);
 
     port_bmp = load_bitmap("port.bmp", NULL);
-    t1 = load_bitmap("t1.bmp", NULL);
+    t1 = load_bitmap("t2.bmp", NULL);
 
     circle(radar, R_BMP_W / 2, R_BMP_H / 2, R_BMP_H / 2, makecol(255, 255, 255));
-
+    make_array_trace(trace);
     while (!end) {
 
         clear_to_color(sea, sea_color);
@@ -430,7 +450,7 @@ int i;
 
         blit(sea, back_sea_bmp, 0, 0, 0,0,sea->w, sea->h);
         draw_sprite(back_sea_bmp, port_bmp, 0, 0);
-        draw_sprite(back_sea_bmp, t1, 0,0);
+        //draw_sprite(back_sea_bmp, t1, 0,0);
         circle(back_sea_bmp, XPORT, YPORT, 10, 0);
         blit(back_sea_bmp, screen, 0,0,0,0,back_sea_bmp->w, back_sea_bmp->h); 
         blit(radar, screen, 0, 0,910, 0, radar->w, radar->h);
@@ -507,6 +527,7 @@ int main()
 
 char scan;
 int i;
+
     if (MAX_SHIPS + aux_thread > MAX_THREADS)
     {
         printf("too many ships! The max number of ships + the auxiliar thread"
