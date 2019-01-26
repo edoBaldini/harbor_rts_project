@@ -246,49 +246,18 @@ float ylinear_movement(float y, float ytarget_pos, float vel, float degree)
         return (y + (vel * sin(degree) / PERIOD));
  }
 
- void follow_track(int i)
-{	
-float a = 0;
-float d;
-float alpha;
-int color;
-float x,y;
-	
-	while (a < 180)
-	{
-		alpha = a * M_PI / 180.f;
-		for(d = 60; d > 0; d -= 6)
-		{
-			x = fleet[i].x + d * cosf(alpha);
-        	y = fleet[i].y - d * sinf(alpha);
-        	color = getpixel(t1, x, y);
-        	if (color != 63519)
-        	{
-        		fleet[i].traj_grade = degree_rect(fleet[i].x, fleet[i].y, x,y);
-        		fleet[i].vel = 0.05;
-        		fleet[i].x = xlinear_movement(fleet[i].x, x, fleet[i].vel, fleet[i].traj_grade);
-        		fleet[i].y = ylinear_movement(fleet[i].y, y, fleet[i].vel, fleet[i].traj_grade);
-        		d = 0;
-        	}
-
-		}
-		a += 0.02;
-
-	}
-}
 
 
  void * ship_task(void * arg)
  {
 
 bool need_stop = true; // MUST BE CHANGED!!!!
-int i,y,x;
+int i;
 int ship_id;
 int index = 0;
-int acc;
+float acc;
+float prec_grade;
 float objective;
-int prev_index = 0;
-float prev_grade;
 ship * myship;
 route * myroute;
 
@@ -303,7 +272,7 @@ route * myroute;
     while (!end) 
     {
     	
-    	/*if (myroute-> trace == NULL)
+    	if (myroute-> trace == NULL)
     	{
     		myship-> traj_grade = degree_rect(myship-> x, myship-> y, 
                                                 myroute-> x, myroute-> y);
@@ -314,24 +283,31 @@ route * myroute;
     	}
 
     	else 
-    	{*/ 
-    		myship-> vel = 100.0;
+    	{
+    		myship-> vel = 60.0;
     	    objective =  myship-> vel * FRAME_PERIOD; //sqrtf((myship-> x * myship-> x) + (myship->y * myship-> y)) + myship-> vel * PERIOD * FRAME_PERIOD;
-    	    printf("objective %f\n", objective);
     	    for (i = index; i < PORT_BMP_W * PORT_BMP_H; i++)
     	    { 
     	    	acc = distance_vector(myship-> x, myship-> y, trace[i].x, trace[i].y);//sqrtf((trace[i].x * trace[i].x) + (trace[i].y * trace[i]. y));
     	    	if ( acc >= objective)
     	    	{
+    	    		prec_grade = myship-> traj_grade;
+    	    		myship-> traj_grade = degree_rect(myship-> x, myship-> y, trace[i + 60].x, trace[i + 60].y);//degree_rect(myship-> x, myship-> y, trace[i].x, trace[i].y);//;
+
+    	    		if(trace[i + 60].x == 0)
+    	    			myship-> traj_grade = degree_rect(myship-> x, myship-> y, trace[i].x, trace[i].y);
+
     	    		myship->x = trace[i].x;
     				myship->y = trace[i].y;
-    				myship-> traj_grade = degree_rect(trace[i].x, trace[i].y, trace[i + 5].x, trace[i + 5].y);//degree_rect(myship-> x, myship-> y, trace[i].x, trace[i].y);//;
     				index = i;
+    				
+    				
+    				printf( "objective %f, acc %f, x %f, y  %f grade %f, index %d\n", objective, acc, trace[i].x, trace[i].y, myship->traj_grade, i);
     				i = PORT_BMP_W * PORT_BMP_H;
     				acc = 0;
     	    	}
     	    }
-    	//}
+    	}
 	
         if (deadline_miss(id))
         {   
@@ -394,7 +370,7 @@ const int id = get_task_index(arg);
         	for(i = 0; i  < ships_activated; ++i)
         	{
         		if (check_spec_position(i, XPORT, YPORT)){
-        			fleet[i].traj_grade = (- M_PI / 2);
+        			//fleet[i].traj_grade = (- M_PI / 2);
         			routes[i].trace = t1;
         		}
 
@@ -437,7 +413,7 @@ int i;
     clear_bitmap(radar);
 
     port_bmp = load_bitmap("port.bmp", NULL);
-    t1 = load_bitmap("t2.bmp", NULL);
+    t1 = load_bitmap("t5.bmp", NULL);
 
     circle(radar, R_BMP_W / 2, R_BMP_H / 2, R_BMP_H / 2, makecol(255, 255, 255));
     make_array_trace(trace);
