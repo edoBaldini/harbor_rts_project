@@ -79,8 +79,6 @@ struct route routes[MAX_SHIPS];
 //------------------------------------------------------------------------------
 BITMAP * sea;
 BITMAP * radar;
-BITMAP * t[13];
-//BITMAP * t2;
 int sea_color;
 int ships_activated = 0;
 bool end = false;
@@ -176,27 +174,42 @@ pair make_pair(int x, int y)
 	return coordinates;
 }
 
+float degree_fix(float grade)
+{
+	int new_grade = (grade > 0 ? grade : (2 * M_PI + grade)) * 360 / (2 * M_PI); //from radiants to degree 360
+	return (new_grade * 256 / 360);
+}
+
 void fill_places(BITMAP * t_bmp)
 {
 int i;
-int index = 0;
-	for (i = 1; i < 13; i++)
+BITMAP * t[13];
+	for (i = 0; i < 13; i++)
 	{
-		t[i] = create_bitmap(XPORT, YPORT);
+		t[i] = create_bitmap(PORT_BMP_W, PORT_BMP_H);
 		clear_to_color(t[i], makecol(255,0,255));
+		
+
+		if (i == 0)
+		{
+			t[i] = t_bmp;
+			places[0].trace = t[i];
+		}
+
+		if (i % 2 != 0)
+		{
+			places[i].trace = t[i];
+			draw_sprite_h_flip(places[i].trace, t[i - 1] , 0, 0);
+		}
+		else if(i > 0)
+		{
+			pivot_scaled_sprite(t[i], t[i - 2], XPORT, YPORT, XPORT, YPORT, ftofix(degree_fix(-0.06)),61000);
+			places[i].trace = t[i];
+		}
+
+		places[i].available = true;
 
 	}
-	
-	while(places[index].available == true)
-	{
-		index ++;
-	}
-
-	places[index].trace = t_bmp;
-	places[index].available = true;
-	draw_sprite_h_flip(t[1], t_bmp, 0, 0);
-	places[index + 1].trace = t[1];
-	places[index + 1].available = true;
 
 }
 
@@ -467,17 +480,12 @@ const int id = get_task_index(arg);
 
 	return NULL;
 }
-
-float degree_fix(float grade)
-{
-	int new_grade = (grade > 0 ? grade : (2 * M_PI + grade)) * 360 / (2 * M_PI); //from radiants to degree 360
-	return (new_grade * 256 / 360);
-}
 	
- void * display(void *arg)
- {
+void * display(void *arg)
+{
 BITMAP * port_bmp;
 BITMAP * back_sea_bmp;
+BITMAP * trace;
 int i;
 	// Task private variables
 	const int id = get_task_index(arg);
@@ -494,11 +502,9 @@ int i;
 	clear_bitmap(radar);
 
 	port_bmp = load_bitmap("port.bmp", NULL);
-	t[0] = load_bitmap("t1_a.bmp", NULL);
-	//t2 = load_bitmap("t1_b.bmp", NULL);
+	trace = load_bitmap("t1_a.bmp", NULL);
 	circle(radar, R_BMP_W / 2, R_BMP_H / 2, R_BMP_H / 2, makecol(255, 255, 255));
-	fill_places(t[0]);
-	//fill_places(t2);
+	fill_places(trace);
 	while (!end) {
 
 		clear_to_color(sea, sea_color);
@@ -508,7 +514,11 @@ int i;
 
 		blit(sea, back_sea_bmp, 0, 0, 0,0,sea->w, sea->h);
 		draw_sprite(back_sea_bmp, port_bmp, 0, 0);
-		//draw_sprite(back_sea_bmp, t1, 0, 0);
+		for (int k = 0; k < 13; k++)
+			draw_sprite(back_sea_bmp, places[k].trace, 0,0);
+		//draw_sprite(back_sea_bmp, places[1].trace, 0,0);
+
+		//pivot_scaled_sprite(back_sea_bmp, t[0], XPORT, YPORT, XPORT, YPORT, ftofix(degree_fix(-0.06)), 61000);
 		circle(back_sea_bmp, XPORT, YPORT, 10, 0);
 		blit(back_sea_bmp, screen, 0,0,0,0,back_sea_bmp->w, back_sea_bmp->h); 
 		blit(radar, screen, 0, 0,910, 0, radar->w, radar->h);
