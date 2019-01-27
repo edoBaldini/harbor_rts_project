@@ -188,12 +188,28 @@ int index = 0;
     places[index].available = true;
 
 }
+
+void reverse_array(pair trace[PORT_BMP_W * PORT_BMP_H], int last_index)
+{
+int i;
+pair aux;
+int size = last_index;
+    for(i = 0; i < size / 2; ++i)
+    {
+        aux = trace[i];
+        trace[i] = trace[last_index];
+        trace[last_index] = aux;
+        last_index --;
+    }
+}
+
 void make_array_trace(BITMAP * t, pair trace[PORT_BMP_W * PORT_BMP_H], int id)
 {
 int index = 0;
 int place_index = 0;
 int i, j;
-    
+int last_index;
+
     for (i = 0; i < PORT_BMP_W; ++i)
 
     {
@@ -210,8 +226,13 @@ int i, j;
 
         }
     }
-    routes[id].x = trace[index --].x;
-    routes[id].y = trace[index --].y;
+    last_index = -- index;
+    
+    if(trace[0].y < trace[last_index].y)
+        reverse_array(trace, last_index);
+
+    routes[id].x = trace[last_index].x;
+    routes[id].y = trace[last_index].y;
 }
 
 //------------------------------------------------------------------------------
@@ -377,7 +398,7 @@ bool check_position(int id)
     return -1;
  }
 
-void assign_trace(int first_trace)
+bool assign_trace(int first_trace)
  {
  int i;
     for (i = 0; i < 13; i++)
@@ -386,9 +407,10 @@ void assign_trace(int first_trace)
         {
             routes[first_trace].trace = places[i].trace;
             places[i].available = false;
-            break;
+            return true;
         }
     } 
+    return false;
  }
 
 void * controller_task(void *arg)
@@ -413,10 +435,14 @@ const int id = get_task_index(arg);
             if (check_spec_position(first_trace, XPORT, YPORT))
             {
                 //fleet[i].traj_grade = (- M_PI / 2);
-                assign_trace(first_trace);
-                access_port = true;
-                second_trace = first_trace;
-                first_trace = -1;
+                access_route = assign_trace(first_trace);
+                if (access_route)
+                {
+                    access_port = true;
+                    second_trace = first_trace;
+                    first_trace = -1;     
+                }
+
             }
 
         }
@@ -460,8 +486,6 @@ int i;
     t1 = load_bitmap("t1_a.bmp", NULL);
     t2 = load_bitmap("t1_b.bmp", NULL);
     circle(radar, R_BMP_W / 2, R_BMP_H / 2, R_BMP_H / 2, makecol(255, 255, 255));
-    //make_array_trace(t1);
-    //make_array_trace(t2);
     fill_places(t1);
     fill_places(t2);
     while (!end) {
