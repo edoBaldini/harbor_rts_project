@@ -79,8 +79,8 @@ struct route routes[MAX_SHIPS];
 //------------------------------------------------------------------------------
 BITMAP * sea;
 BITMAP * radar;
-BITMAP * t1;
-BITMAP * t2;
+BITMAP * t[13];
+//BITMAP * t2;
 int sea_color;
 int ships_activated = 0;
 bool end = false;
@@ -176,20 +176,31 @@ pair make_pair(int x, int y)
 	return coordinates;
 }
 
-void fill_places(BITMAP * t)
+void fill_places(BITMAP * t_bmp)
 {
+int i;
 int index = 0;
+	for (i = 1; i < 13; i++)
+	{
+		t[i] = create_bitmap(XPORT, YPORT);
+		clear_to_color(t[i], makecol(255,0,255));
+
+	}
+	
 	while(places[index].available == true)
 	{
 		index ++;
 	}
 
-	places[index].trace = t;
+	places[index].trace = t_bmp;
 	places[index].available = true;
+	draw_sprite_h_flip(t[1], t_bmp, 0, 0);
+	places[index + 1].trace = t[1];
+	places[index + 1].available = true;
 
 }
 
-void reverse_array(pair trace[PORT_BMP_W * PORT_BMP_H], int last_index)
+void reverse_array(pair trace[XPORT * YPORT], int last_index)
 {
 int i;
 pair aux;
@@ -203,7 +214,7 @@ int size = last_index;
 	}
 }
 
-void make_array_trace(BITMAP * t, pair trace[PORT_BMP_W * PORT_BMP_H], int id)
+void make_array_trace(BITMAP * t, pair trace[XPORT * YPORT], int id)
 {
 int index = 0;
 int place_index = 0;
@@ -297,7 +308,7 @@ float ylinear_movement(float y, float ytarget_pos, float vel, float degree)
 bool need_stop = true; // MUST BE CHANGED!!!!
 int i;
 int ship_id;
-pair mytrace[PORT_BMP_W * PORT_BMP_H];
+pair mytrace[XPORT * YPORT];
 bool mytrace_computed = false;
 int index = 0;
 float acc;
@@ -337,7 +348,7 @@ route * myroute;
 			}
 			myship-> vel = 60.0;
 			objective =  myship-> vel * FRAME_PERIOD; //sqrtf((myship-> x * myship-> x) + (myship->y * myship-> y)) + myship-> vel * PERIOD * FRAME_PERIOD;
-			for (i = index; i < PORT_BMP_W * PORT_BMP_H; i++)
+			for (i = index; i < XPORT * YPORT; i++)
 			{ 
 				acc = distance_vector(myship-> x, myship-> y, mytrace[i].x, mytrace[i].y);//sqrtf((trace[i].x * trace[i].x) + (trace[i].y * trace[i]. y));
 				if ( acc >= objective)
@@ -483,11 +494,11 @@ int i;
 	clear_bitmap(radar);
 
 	port_bmp = load_bitmap("port.bmp", NULL);
-	t1 = load_bitmap("t1_a.bmp", NULL);
-	t2 = load_bitmap("t1_b.bmp", NULL);
+	t[0] = load_bitmap("t1_a.bmp", NULL);
+	//t2 = load_bitmap("t1_b.bmp", NULL);
 	circle(radar, R_BMP_W / 2, R_BMP_H / 2, R_BMP_H / 2, makecol(255, 255, 255));
-	fill_places(t1);
-	fill_places(t2);
+	fill_places(t[0]);
+	//fill_places(t2);
 	while (!end) {
 
 		clear_to_color(sea, sea_color);
