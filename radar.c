@@ -5,10 +5,10 @@
 #include <pthread.h>
 #include "ptask.h"
 
-#define XWIN			1400		// width monitor
-#define YWIN            680        	// height monitor
-#define	XSHIP			18			// width dimension of the ship	
-#define YSHIP			54			// height dimension of the ship
+#define XWIN            1400        // width monitor
+#define YWIN            680         // height monitor
+#define XSHIP           18          // width dimension of the ship  
+#define YSHIP           54          // height dimension of the ship
 #define PERIOD          40          // in ms
 #define DLINE           60
 #define PRIO            10
@@ -30,12 +30,12 @@
 #define ARES            360
 #define RSTEP           1
 #define RMIN            0
-#define XRAD            450			//x center of the radar = center of the port
-#define YRAD            450			//y center of the radar = center of the port
+#define XRAD            450         //x center of the radar = center of the port
+#define YRAD            450         //y center of the radar = center of the port
 
 #define YGUARD_POS      600
-#define XPORT           450			//x position of the door port
-#define YPORT           505			//y postizion of the doow port
+#define XPORT           450         //x position of the door port
+#define YPORT           505         //y postizion of the doow port
 #define VEL             100
 
 #define PORT_BMP_W      900
@@ -53,27 +53,34 @@ typedef struct ship
     BITMAP * boat;
 }ship;
 
-typedef struct route
-{
-	BITMAP * trace;
-	float x, y; 
-}route;
-
 typedef struct pair
 {
     float x, y;
 }pair;
 
+typedef struct route
+{
+    BITMAP * trace;
+    float x, y; 
+}route;
 
+typedef struct place 
+{
+    BITMAP * trace;
+    bool available;
+}place; 
+
+struct place places[13];
 struct ship fleet[MAX_SHIPS];
 struct route routes[MAX_SHIPS];
-struct pair trace[PORT_BMP_W * PORT_BMP_H];
+//struct pair trace[PORT_BMP_W * PORT_BMP_H];
 //------------------------------------------------------------------------------
 // GLOBAL VARIABLES
 //------------------------------------------------------------------------------
 BITMAP * sea;
 BITMAP * radar;
 BITMAP * t1;
+BITMAP * t2;
 int sea_color;
 int ships_activated = 0;
 bool end = false;
@@ -106,12 +113,12 @@ const int id = get_task_index(arg);
 
     while (!end) 
     {   
-		alpha = a * M_PI / 180.f;   // from degree to radiants
-		for (d = RMIN; d < RMAX; d += RSTEP)
+        alpha = a * M_PI / 180.f;   // from degree to radiants
+        for (d = RMIN; d < RMAX; d += RSTEP)
         {
-        	x = XRAD + d * cos(alpha);
-        	y = YRAD - d * sin(alpha);
-        	color = getpixel(sea, x, y);
+            x = XRAD + d * cos(alpha);
+            y = YRAD - d * sin(alpha);
+            color = getpixel(sea, x, y);
             for (j = 0; j <= ships_activated; j++)
             {
                 found = check_ship(j, color);
@@ -119,12 +126,12 @@ const int id = get_task_index(arg);
                 if (found)
                 {
                     putpixel(radar, (x / 2), (y / 2), r_col);
-        	   }
+               }
             }
         }
 //from the formula L = pi * r *a / 180 I can guarantee that, the circumference
 //arc len is less than the width label in this way the ships will be always seen
-        a += 1;	
+        a += 1; 
         if (a == 360.0)
         {
             a = 0.0;
@@ -169,27 +176,42 @@ pair make_pair(int x, int y)
     return coordinates;
 }
 
-void make_array_trace(pair trace[PORT_BMP_W * PORT_BMP_H])
+void fill_places(BITMAP * t)
 {
 int index = 0;
-    for (int i = 0; i < PORT_BMP_W; ++i)
+    while(places[index].available == true)
+    {
+        index ++;
+    }
+
+    places[index].trace = t;
+    places[index].available = true;
+
+}
+void make_array_trace(BITMAP * t, pair trace[PORT_BMP_W * PORT_BMP_H], int id)
+{
+int index = 0;
+int place_index = 0;
+int i, j;
+    
+    for (i = 0; i < PORT_BMP_W; ++i)
 
     {
-    	for (int j = PORT_BMP_H; j > 0; --j)    
+        for (j = PORT_BMP_H; j > 0; --j)    
 
-    	{
-    		int color = getpixel(t1, i, j);
+        {
+            int color = getpixel(t, i, j);
 
-     	   if (color == 0)
-     	   {
-      		  trace[index] = make_pair(i,j);
-      	      index ++;
+           if (color == 0)
+           {
+              trace[index] = make_pair(i,j);
+              index ++;
+            }
 
-
-       		}
-
-   		}
+        }
     }
+    routes[id].x = trace[index --].x;
+    routes[id].y = trace[index --].y;
 }
 
 //------------------------------------------------------------------------------
@@ -210,7 +232,7 @@ float distance_vector(float x_start, float y_start,
 }
 
 float degree_rect(float x1, float y1, float x2, float y2)
-{	
+{   
     float angular_coefficient = (x1 == x2) ? x1 : ((y2 - y1) / (x2 - x1));
     float degree = atanf(angular_coefficient);
     return (x2 <= x1) ? degree + M_PI  : degree + 2 * M_PI;
@@ -254,6 +276,8 @@ float ylinear_movement(float y, float ytarget_pos, float vel, float degree)
 bool need_stop = true; // MUST BE CHANGED!!!!
 int i;
 int ship_id;
+pair mytrace[PORT_BMP_W * PORT_BMP_H];
+bool mytrace_computed = false;
 int index = 0;
 float acc;
 float prec_grade;
@@ -267,48 +291,54 @@ route * myroute;
     ship_id = id - aux_thread;
     myship = &fleet[ship_id];
     myroute = &routes[ship_id]; 
-    myship->x = trace[0].x;
-    myship->y = trace[0].y;   
+    //myship->x = trace[0].x;
+    //myship->y = trace[0].y;   
     while (!end) 
     {
-    	
-    	if (myroute-> trace == NULL)
-    	{
-    		myship-> traj_grade = degree_rect(myship-> x, myship-> y, 
+        
+        if (myroute-> trace == NULL)
+        {
+            myship-> traj_grade = degree_rect(myship-> x, myship-> y, 
                                                 myroute-> x, myroute-> y);
-        	myship-> x = xlinear_movement(myship-> x, myroute-> x, myship-> vel, 
-        										myship-> traj_grade);
-   			myship-> y = ylinear_movement(myship-> y, myroute-> y, myship-> vel, 
-        										myship-> traj_grade);
-    	}
+            myship-> x = xlinear_movement(myship-> x, myroute-> x, myship-> vel, 
+                                                myship-> traj_grade);
+            myship-> y = ylinear_movement(myship-> y, myroute-> y, myship-> vel, 
+                                                myship-> traj_grade);
 
-    	else 
-    	{
-    		myship-> vel = 60.0;
-    	    objective =  myship-> vel * FRAME_PERIOD; //sqrtf((myship-> x * myship-> x) + (myship->y * myship-> y)) + myship-> vel * PERIOD * FRAME_PERIOD;
-    	    for (i = index; i < PORT_BMP_W * PORT_BMP_H; i++)
-    	    { 
-    	    	acc = distance_vector(myship-> x, myship-> y, trace[i].x, trace[i].y);//sqrtf((trace[i].x * trace[i].x) + (trace[i].y * trace[i]. y));
-    	    	if ( acc >= objective)
-    	    	{
-    	    		prec_grade = myship-> traj_grade;
-    	    		myship-> traj_grade = degree_rect(myship-> x, myship-> y, trace[i + 60].x, trace[i + 60].y);//degree_rect(myship-> x, myship-> y, trace[i].x, trace[i].y);//;
+        }
 
-    	    		if(trace[i + 60].x == 0)
-    	    			myship-> traj_grade = degree_rect(myship-> x, myship-> y, trace[i].x, trace[i].y);
+        else 
+        {
+            if (!mytrace_computed)
+            {
+                make_array_trace(myroute-> trace, mytrace, ship_id);
+                mytrace_computed = true;
+            }
+            myship-> vel = 60.0;
+            objective =  myship-> vel * FRAME_PERIOD; //sqrtf((myship-> x * myship-> x) + (myship->y * myship-> y)) + myship-> vel * PERIOD * FRAME_PERIOD;
+            for (i = index; i < PORT_BMP_W * PORT_BMP_H; i++)
+            { 
+                acc = distance_vector(myship-> x, myship-> y, mytrace[i].x, mytrace[i].y);//sqrtf((trace[i].x * trace[i].x) + (trace[i].y * trace[i]. y));
+                if ( acc >= objective)
+                {
+                    prec_grade = myship-> traj_grade;
+                    myship-> traj_grade = degree_rect(myship-> x, myship-> y, 
+                            mytrace[i + 60].x, mytrace[i + 60].y);//degree_rect(myship-> x, myship-> y, trace[i].x, trace[i].y);//;
 
-    	    		myship->x = trace[i].x;
-    				myship->y = trace[i].y;
-    				index = i;
-    				
-    				
-    				printf( "objective %f, acc %f, x %f, y  %f grade %f, index %d\n", objective, acc, trace[i].x, trace[i].y, myship->traj_grade, i);
-    				i = PORT_BMP_W * PORT_BMP_H;
-    				acc = 0;
-    	    	}
-    	    }
-    	}
-	
+                    if(mytrace[i + 60].x == 0)
+                        myship-> traj_grade = degree_rect(myship-> x, myship-> y, 
+                                mytrace[i].x, mytrace[i].y);
+
+                    myship->x = mytrace[i].x;
+                    myship->y = mytrace[i].y;
+                    index = i;
+                    acc = 0;
+                    //i = PORT_BMP_W * PORT_BMP_H;
+                    break;
+                }
+            }
+        }
+    
         if (deadline_miss(id))
         {   
             printf("%d) deadline missed! ship\n", id);
@@ -322,61 +352,74 @@ route * myroute;
 
 bool check_spec_position(int id, float x, float y)
 {
-	return fabs(fleet[id].x - x) <= EPSILON &&
-			fabs(fleet[id].y - y) <= EPSILON;
+    return fabs(fleet[id].x - x) <= EPSILON &&
+            fabs(fleet[id].y - y) <= EPSILON;
 }
 
 bool check_position(int id)
 {
-	return fabs(fleet[id].x - routes[id].x) <= EPSILON &&
-			fabs(fleet[id].y - routes[id].y) <= EPSILON;
+    return fabs(fleet[id].x - routes[id].x) == EPSILON &&
+            fabs(fleet[id].y - routes[id].y) == EPSILON;
 }
 
- bool try_access_port(bool access_port)
+  bool try_access_port()
  {
  int j;
- 	if (access_port)
- 	{
- 	for (j = 0; j < ships_activated; ++j)
+    for (j = 0; j < ships_activated; ++j)
         {
-        	if (fabs(YGUARD_POS - fleet[j].y) <= EPSILON && access_port)
-        	{
-        		routes[j].y = YPORT;
-        		routes[j].x = XPORT;
-        		return false;
-        	}
+            if (fabs(YGUARD_POS - fleet[j].y) <= EPSILON)
+            {
+                routes[j].y = YPORT;
+                routes[j].x = XPORT;
+                return j;
+            }
         }
-    }
-    return access_port;
+    return -1;
+ }
+
+void assign_trace(int first_trace)
+ {
+ int i;
+    for (i = 0; i < 13; i++)
+    {           
+        if (places[i].available)
+        {
+            routes[first_trace].trace = places[i].trace;
+            places[i].available = false;
+            break;
+        }
+    } 
  }
 
 void * controller_task(void *arg)
 {
 int i, j;
+int first_trace, second_trace;
 bool access_port = true;
 bool access_route = false;
-bool free_places[13];
-
 const int id = get_task_index(arg);
-	set_activation(id);
-
-	for (j = 0; j < 13; j++)
-		free_places[j] = true;
+    set_activation(id);
 
     while (!end) {
-        access_port = try_access_port(access_port);
-        if (!access_port)
+        if (access_port)
         {
-        	for(i = 0; i  < ships_activated; ++i)
-        	{
-        		if (check_spec_position(i, XPORT, YPORT)){
-        			//fleet[i].traj_grade = (- M_PI / 2);
-        			routes[i].trace = t1;
-        		}
-
-        	}
+            first_trace = try_access_port();
+            if (first_trace >= 0)
+                access_port = false;
         }
 
+       else
+        {
+            if (check_spec_position(first_trace, XPORT, YPORT))
+            {
+                //fleet[i].traj_grade = (- M_PI / 2);
+                assign_trace(first_trace);
+                access_port = true;
+                second_trace = first_trace;
+                first_trace = -1;
+            }
+
+        }
         if (deadline_miss(id))
         {   
             printf("%d) deadline missed! ship\n", id);
@@ -390,9 +433,10 @@ const int id = get_task_index(arg);
 
 float degree_fix(float grade)
 {
-	int new_grade = (grade > 0 ? grade : (2 * M_PI + grade)) * 360 / (2 * M_PI); //from radiants to degree 360
+    int new_grade = (grade > 0 ? grade : (2 * M_PI + grade)) * 360 / (2 * M_PI); //from radiants to degree 360
     return (new_grade * 256 / 360);
 }
+    
  void * display(void *arg)
  {
 BITMAP * port_bmp;
@@ -413,10 +457,13 @@ int i;
     clear_bitmap(radar);
 
     port_bmp = load_bitmap("port.bmp", NULL);
-    t1 = load_bitmap("t5.bmp", NULL);
-
+    t1 = load_bitmap("t1_a.bmp", NULL);
+    t2 = load_bitmap("t1_b.bmp", NULL);
     circle(radar, R_BMP_W / 2, R_BMP_H / 2, R_BMP_H / 2, makecol(255, 255, 255));
-    make_array_trace(trace);
+    //make_array_trace(t1);
+    //make_array_trace(t2);
+    fill_places(t1);
+    fill_places(t2);
     while (!end) {
 
         clear_to_color(sea, sea_color);
@@ -426,7 +473,7 @@ int i;
 
         blit(sea, back_sea_bmp, 0, 0, 0,0,sea->w, sea->h);
         draw_sprite(back_sea_bmp, port_bmp, 0, 0);
-        //draw_sprite(back_sea_bmp, t1, 0,0);
+        //draw_sprite(back_sea_bmp, t1, 0, 0);
         circle(back_sea_bmp, XPORT, YPORT, 10, 0);
         blit(back_sea_bmp, screen, 0,0,0,0,back_sea_bmp->w, back_sea_bmp->h); 
         blit(radar, screen, 0, 0,910, 0, radar->w, radar->h);
@@ -456,6 +503,7 @@ void init(void)
     install_keyboard();
     set_color_depth(16);
     set_gfx_mode(GFX_AUTODETECT_WINDOWED, XWIN, YWIN,0,0);
+    
     task_create(display, PERIOD, DLINE, PRIO);
     aux_thread ++;
     task_create(radar_task, 3, 6, PRIO);
@@ -489,9 +537,9 @@ int actual_index = ships_activated + 1;
         fleet[ships_activated].y = random_in_range(PORT_BMP_H, YWIN);
         fleet[ships_activated].vel = VEL;
 
-        routes[ships_activated].trace = NULL;
         routes[ships_activated].x = fleet[ships_activated].x;
         routes[ships_activated].y = YGUARD_POS;
+        routes[ships_activated].trace = NULL;
         ships_activated += 1;
 
         task_create(ship_task, PERIOD, DLINE, PRIO);
