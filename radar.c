@@ -33,7 +33,7 @@
 #define XRAD            450         //x center of the radar = center of the port
 #define YRAD            450         //y center of the radar = center of the port
 
-#define YGUARD_POS      600
+#define YGUARD_POS      610
 #define XPORT           450         //x position of the door port
 #define YPORT           505         //y postizion of the doow port
 #define VEL             150
@@ -321,12 +321,33 @@ float ylinear_movement(float y, float ytarget_pos, float vel, float degree)
 		return (y + (vel * sin(degree) / PERIOD));
  }
 
+ bool check_forward(int id)
+ {
+ int i, j;
+ int color;
+ bool found;
+
+ 	for (j = 0; j < 60; ++j)
+ 	{
+ 		color = getpixel(sea, fleet[id].x, fleet[id].y - j);
+ 		for (i = 0; i < ships_activated; ++i)
+ 		{
+ 			found = check_ship(i, color);
+ 			if (found)
+ 				return true;
+ 		}
+ 	}
+ 	return false;
+ }
+
  void * ship_task(void * arg)
  {
 
 bool need_stop = true; // MUST BE CHANGED!!!!
 int i, j = 0;
 int ship_id;
+int color;
+bool found_ship = false;
 pair mytrace[XPORT * YPORT];
 bool mytrace_computed = false;
 int index = 0;
@@ -348,9 +369,11 @@ route * myroute;
 	//myship->y = trace[0].y;   
 	while (!end) 
 	{
-			
+		found_ship = check_forward(ship_id);
+
 		if (myroute-> trace == NULL)
 		{
+			if (!found_ship){
 			/*if (distance_vector(myship-> x, myship-> y, myroute-> x, myroute-> y) <= 50)
 			{
 				myship-> vel = actual_vel(myship-> x, myship-> y, myroute-> x, myroute ->y, myship-> vel, false);
@@ -371,6 +394,7 @@ route * myroute;
 			
 			myship-> y = ylinear_movement(myship-> y, myroute-> y, myship-> vel, 
 												myship-> traj_grade);
+		}
 
 
 		}
@@ -615,7 +639,6 @@ int actual_index = ships_activated + 1;
 		fleet[ships_activated].x = ((ships_activated * 144) % 864) + 54; //(ships_activated * 55 + 150) % PORT_BMP_W;
 		fleet[ships_activated].y = random_in_range(PORT_BMP_H, YWIN);
 		//fleet[ships_activated].vel = VEL;
-		printf("%f\n",fleet[ships_activated].x);
 		routes[ships_activated].x = fleet[ships_activated].x;
 		routes[ships_activated].y = YGUARD_POS;
 		routes[ships_activated].trace = NULL;
