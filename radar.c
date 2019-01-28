@@ -374,16 +374,6 @@ route * myroute;
 		if (myroute-> trace == NULL)
 		{
 			if (!found_ship){
-			/*if (distance_vector(myship-> x, myship-> y, myroute-> x, myroute-> y) <= 50)
-			{
-				myship-> vel = actual_vel(myship-> x, myship-> y, myroute-> x, myroute ->y, myship-> vel, false);
-
-			}
-			else if (j <= 50 && myship-> vel <= 100){
-				myship-> vel = actual_vel(myship-> x + j, myship-> y + j, myship-> x, myship-> y, myship-> vel, true);
-				j++;
-			}*/	
-			//printf("destinazione %f - %f\n", myroute-> x, myroute->y);
 		
 			myship-> vel = 100;
 			myship-> traj_grade = degree_rect(myship-> x, myship-> y, 
@@ -470,9 +460,10 @@ int j;
 		{
 			if (fabs(YGUARD_POS - fleet[j].y) <= EPSILON)
 			{
-				routes[j].y = YPORT;
-				routes[j].x = XPORT;
+				//routes[j].y = YPORT;
+				//routes[j].x = XPORT;
 				//fleet[j].vel = 100.0;
+				routes[j].trace =  load_bitmap("w1.bmp", NULL);
 				return j;
 			}
 		}
@@ -504,7 +495,7 @@ const int id = get_task_index(arg);
 	set_activation(id);
 
 	while (!end) {
-		/*if (access_port)
+		if (access_port)
 		{
 			first_trace = try_access_port();
 			if (first_trace >= 0)
@@ -526,7 +517,7 @@ const int id = get_task_index(arg);
 
 			}
 
-		}*/
+		}
 		if (deadline_miss(id))
 		{   
 			printf("%d) deadline missed! ship\n", id);
@@ -642,6 +633,7 @@ int actual_index = ships_activated + 1;
 		routes[ships_activated].x = fleet[ships_activated].x;
 		routes[ships_activated].y = YGUARD_POS;
 		routes[ships_activated].trace = NULL;
+		printf("%f\n", fleet[ships_activated].x);
 		ships_activated += 1;
 
 		task_create(ship_task, PERIOD, DLINE, PRIO);
