@@ -10,13 +10,13 @@
 #define XSHIP           18          // width dimension of the ship  
 #define YSHIP           54          // height dimension of the ship
 #define PERIOD          40          // in ms
-#define DLINE           60
+#define DLINE           45
 #define PRIO            10
 #define MAX_SHIPS       12          // max number of ship MUST BE LOWER THAN 30
 #define MAX_THREADS     32
-#define FPS             60.0
+#define FPS             200.0
 #define FRAME_PERIOD    (1 / FPS)
-#define EPSILON         2.f        // guardian distance to the goal
+#define EPSILON         3.f        // guardian distance to the goal
 
 #define true            1
 #define false           0
@@ -40,6 +40,7 @@
 
 #define PORT_BMP_W      900
 #define PORT_BMP_H      900
+#define	Y_PLACE 		253
 //-----------------------------------------------------------------------------
 // GLOBAL STRUCTURE
 //------------------------------------------------------------------------------
@@ -257,7 +258,7 @@ int last_index;
 		reverse_array(trace, last_index);
 
 	routes[id].x = trace[last_index].x;
-	routes[id].y = 253.0;//trace[last_index].y;
+	//routes[id].y = 253.0;//trace[last_index].y;
 }
 
 //------------------------------------------------------------------------------
@@ -272,7 +273,7 @@ float distance_vector(float x_start, float y_start,
 						float x_target, float y_target)
 {
 	float x_m = x_target - x_start;
-	float y_m = y_target - y_target;
+	float y_m = y_target - y_start;
 	
 	return sqrtf((x_m * x_m) + (y_m * y_m));
 }
@@ -344,16 +345,16 @@ float ylinear_movement(float y, float ytarget_pos, float vel, float degree)
  {
 
 bool need_stop = true; // MUST BE CHANGED!!!!
+bool found_ship = false;
+bool mytrace_computed = false;
+bool for_place = false;
 int i, j = 0;
 int ship_id;
 int color;
-bool found_ship = false;
 pair mytrace[XPORT * YPORT];
-bool mytrace_computed = false;
 int index = 0;
 float acc;
 float target_degree;
-//float prec_grade;
 float objective;
 ship * myship;
 route * myroute;
@@ -395,41 +396,47 @@ route * myroute;
 			{
 				make_array_trace(myroute-> trace, mytrace, ship_id);
 				mytrace_computed = true;
+				for_place = (myroute-> y == Y_PLACE) ? true : false; 
 			}
 
+			objective =  (myship-> vel) * FRAME_PERIOD; //sqrtf((myship-> x * myship-> x) + (myship->y * myship-> y)) + myship-> vel * PERIOD * FRAME_PERIOD;
+		
+			acc = distance_vector(myship-> x, myship-> y, mytrace[i].x, mytrace[i].y);
+			if (acc >= objective)
+			{
+				myship-> traj_grade = degree_rect(myship-> x, myship-> y, 
+										mytrace[i + 60].x, mytrace[i + 60].y);//degree_rect(myship-> x, myship-> y, trace[i].x, trace[i].y);//;
+				
+				if(mytrace[i + 60].x == 0)
+					myship-> traj_grade = degree_rect(myship-> x, myship-> y, 
+												mytrace[i].x, mytrace[i].y);
+			
+				myship->x = mytrace[i].x;
+				myship->y = mytrace[i].y;
+				acc = 0;
 
-			//myship-> vel = 30.0;
+			}
+			i++;
 
-			objective =  myship-> vel * FRAME_PERIOD; //sqrtf((myship-> x * myship-> x) + (myship->y * myship-> y)) + myship-> vel * PERIOD * FRAME_PERIOD;
-
-			if (myship-> y <= myroute->y){
+			if (myship-> y <= myroute-> y){
 				myship->traj_grade = - M_PI / 2;
 				myship-> y = ylinear_movement(myship->y, myroute-> y - YSHIP, myship-> vel, myship-> traj_grade);
 			}
-			else{
-			for (i = index; i < XPORT * YPORT; i++)
-			{ 
-				acc = distance_vector(myship-> x, myship-> y, mytrace[i].x, mytrace[i].y);//sqrtf((trace[i].x * trace[i].x) + (trace[i].y * trace[i]. y));
-				if ( acc >= objective)
+
+			if (for_place)
+			{
+				if (fabs(myship-> x - myroute-> x) <= EPSILON && fabs(myship-> y - (myroute-> y - YSHIP)) <= EPSILON)
 				{
-					//prec_grade = myship-> traj_grade;
-					myship-> traj_grade = degree_rect(myship-> x, myship-> y, 
-							mytrace[i + 60].x, mytrace[i + 60].y);//degree_rect(myship-> x, myship-> y, trace[i].x, trace[i].y);//;
-
-					if(mytrace[i + 60].x == 0)
-						myship-> traj_grade = degree_rect(myship-> x, myship-> y, 
-								mytrace[i].x, mytrace[i].y);
-
-					myship->x = mytrace[i].x;
-					myship->y = mytrace[i].y;
-					index = i;
-					acc = 0;
-					//i = PORT_BMP_W * PORT_BMP_H;
-					break;
+					sleep(5);
 				}
 			}
+			else if (fabs(myship-> x - myroute-> x) <= EPSILON && fabs(myship-> y - myroute-> y) <= EPSILON)
+			{
+				mytrace_computed = false;
+				i = 0;
+			}
+
 		}
-	}
 		if (deadline_miss(id))
 		{   
 			printf("%d) deadline missed! ship\n", id);
@@ -460,10 +467,11 @@ int j;
 		{
 			if (fabs(YGUARD_POS - fleet[j].y) <= EPSILON)
 			{
-				//routes[j].y = YPORT;
-				//routes[j].x = XPORT;
+				routes[j].y = YPORT;
+				routes[j].x = XPORT;
 				//fleet[j].vel = 100.0;
 				routes[j].trace =  load_bitmap("w1.bmp", NULL);
+
 				return j;
 			}
 		}
@@ -478,6 +486,7 @@ bool assign_trace(int first_trace)
 		if (places[i].available)
 		{
 			routes[first_trace].trace = places[i].trace;
+			routes[first_trace].y = Y_PLACE;
 			places[i].available = false;
 			return true;
 		}
