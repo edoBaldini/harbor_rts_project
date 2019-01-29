@@ -230,9 +230,7 @@ int size = last_index;
 
 void make_array_trace(BITMAP * t, pair trace[XPORT * YPORT], int id)
 {
-float y_place;
 int index = 0;
-int place_index = 0;
 int i, j;
 int last_index;
 
@@ -344,20 +342,17 @@ float ylinear_movement(float y, float ytarget_pos, float vel, float degree)
  void * ship_task(void * arg)
  {
 
-bool need_stop = true; // MUST BE CHANGED!!!!
 bool found_ship = false;
 bool mytrace_computed = false;
 bool for_place = false;
-int i, j = 0;
+int i;
 int ship_id;
-int color;
 pair mytrace[XPORT * YPORT];
-int index = 0;
 float acc;
-float target_degree;
 float objective;
 ship * myship;
 route * myroute;
+struct timespec dt;
 
 	// Task private variables
 	const int id = get_task_index(arg);
@@ -427,7 +422,10 @@ route * myroute;
 			{
 				if (fabs(myship-> x - myroute-> x) <= EPSILON && fabs(myship-> y - (myroute-> y - YSHIP)) <= EPSILON)
 				{
-					sleep(5);
+					
+					dt.tv_sec = 5;
+					dt.tv_nsec = 0;
+					clock_nanosleep(CLOCK_MONOTONIC, 0, &dt, NULL);
 				}
 			}
 			else if (fabs(myship-> x - myroute-> x) <= EPSILON && fabs(myship-> y - myroute-> y) <= EPSILON)
@@ -496,7 +494,6 @@ bool assign_trace(int first_trace)
 
 void * controller_task(void *arg)
 {
-int i, j;
 int first_trace, second_trace;
 bool access_port = true;
 bool access_route = false;
