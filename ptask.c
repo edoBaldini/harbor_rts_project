@@ -1,8 +1,8 @@
-#include "ptask.h"
 #include <pthread.h>
 #include <sched.h>
 #include <assert.h>
-#include <time.h>
+#include "ptask.h"
+
 
 
 #define NT (32)

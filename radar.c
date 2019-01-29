@@ -345,6 +345,7 @@ bool found_ship = false;
 bool mytrace_computed = false;
 bool for_place = false;
 bool permission = false;
+bool wait = false;
 int i;
 int ship_id;
 pair mytrace[XPORT * YPORT];
@@ -353,6 +354,7 @@ float objective;
 ship * myship;
 route * myroute;
 struct timespec dt;
+struct timespec now;
 
 	// Task private variables
 	const int id = get_task_index(arg);
@@ -381,13 +383,14 @@ struct timespec dt;
 				make_array_trace(myroute-> trace, mytrace, ship_id);
 				mytrace_computed = true;
 				for_place = (myroute-> y == Y_PLACE) ? true : false; 
+				myroute->y = (for_place) ? myroute-> y - YSHIP : myroute-> y;
 			}
 
 			objective =  (myship-> vel) * FRAME_PERIOD; //sqrtf((myship-> x * myship-> x) + (myship->y * myship-> y)) + myship-> vel * PERIOD * FRAME_PERIOD;
 		
 			acc = distance_vector(myship-> x, myship-> y, mytrace[i].x, mytrace[i].y);
 
-			if (fabs(myship-> y - YGUARD_POS) >= EPSILON){
+			if (myship-> y > YGUARD_POS + EPSILON){
 
 				if (acc >= objective)
 				{
@@ -411,38 +414,49 @@ struct timespec dt;
 				permission = reply_access[ship_id];
 			}
 
+			//printf("permission %d, placese %d\n", permission, for_place);
+
 			if (permission)
 			{
-				if (acc >= objective)
+				printf("ship %f route %f boh %f\n", myship-> y, myroute-> y, (Y_PLACE - YSHIP + EPSILON));
+				if (fabs(myship-> y - (myroute-> y)) > EPSILON)
 				{
-					myship-> traj_grade = degree_rect(myship-> x, myship-> y, 
-											mytrace[i + 60].x, mytrace[i + 60].y);//degree_rect(myship-> x, myship-> y, trace[i].x, trace[i].y);//;
-				
-					if(mytrace[i + 60].x == 0)
-						myship-> traj_grade = degree_rect(myship-> x, myship-> y, 
-												mytrace[i].x, mytrace[i].y);
-			
-					myship->x = mytrace[i].x;
-					myship->y = mytrace[i].y;
-					acc = 0;
-
-				}	
-				i++;
-
-				if (for_place)
-				{
-
-					if (fabs(myship-> x - myroute-> x) <= EPSILON && fabs(myship-> y - (myroute-> y - YSHIP)) <= EPSILON)
+					if (acc >= objective)
 					{
+						myship-> traj_grade = degree_rect(myship-> x, myship-> y, 
+												mytrace[i + 60].x, mytrace[i + 60].y);//degree_rect(myship-> x, myship-> y, trace[i].x, trace[i].y);//;
 					
-						dt.tv_sec = 5;
-						dt.tv_nsec = 0;
-						clock_nanosleep(CLOCK_MONOTONIC, 0, &dt, NULL);
+						if(mytrace[i + 60].x == 0)
+							myship-> traj_grade = - M_PI / 2;
+						
+						myship->x = mytrace[i].x;
+						myship->y = mytrace[i].y;
 
+						acc = 0;
+
+					}	
+					i++;
+				}
+				if (for_place)
+				{	
+					//printf("x %f, y %f\n", fabs(myship-> x - myroute-> x),  fabs(myship-> y - (myroute-> y - YSHIP)) );
+					if (fabs(myship-> y - (myroute-> y)) <= EPSILON)
+					{
+						if (!wait)
+						{
+							clock_gettime(CLOCK_MONOTONIC, &dt);
+							time_add_ms(&dt, 5000);
+							wait = true;
+						}
+						else {
+							clock_gettime(CLOCK_MONOTONIC, &now);
+							if (time_cmp(now, dt) >= 0)
+								printf("bella zio\n");
+						}
 					}
 				}
 				else if (fabs(myship-> x - myroute-> x) <= EPSILON && fabs(myship-> y - myroute-> y) <= EPSILON)
-				{
+				{	
 					mytrace_computed = false;
 					i = 0;
 				}
