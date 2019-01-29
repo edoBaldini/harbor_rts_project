@@ -64,6 +64,7 @@ typedef struct pair
 typedef struct route
 {
 	BITMAP * trace;
+	bool odd;
 	float x, y; 
 }route;
 
@@ -262,10 +263,10 @@ void make_array_trace(BITMAP * t, pair trace[XPORT * YPORT], int id)
 int index = 0;
 int i, j;
 int last_index;
-	for (i = 0; i < PORT_BMP_W; ++i)
-
+	
+for (j = PORT_BMP_H; j > 0; --j)   
 	{
-		for (j = PORT_BMP_H; j > 0; --j)    
+		 for (i = 0; i < PORT_BMP_W; ++i)
 
 		{
 			int color = getpixel(t, i, j);
@@ -279,14 +280,34 @@ int last_index;
 		}
 	}
 	last_index = -- index;
-	
-	if(trace[0].y < trace[last_index].y)
-		{	printf("reversed\n");
-		reverse_array(trace, last_index);
-	}
 
 	routes[id].x = trace[last_index].x;
-	//routes[id].y = 253.0;//trace[last_index].y;
+}
+
+void make_array_trace_odd(BITMAP * t, pair trace[XPORT * YPORT], int id)
+{
+int index = 0;
+int i, j;
+int last_index;
+	
+for (j = PORT_BMP_H; j > 0; --j)   
+	{
+		 for (i = PORT_BMP_W; i > 0 ; --i)
+
+		{
+			int color = getpixel(t, i, j);
+
+			if (color == 0)
+			{
+				trace[index] = make_pair(i,j);
+				index ++;
+			}
+
+		}
+	}
+	last_index = -- index;
+
+	routes[id].x = trace[last_index].x;
 }
 
 //------------------------------------------------------------------------------
@@ -408,7 +429,11 @@ struct timespec now;
 		{
 			if (!mytrace_computed)
 			{
-				make_array_trace(myroute-> trace, mytrace, ship_id);
+				
+				if (myroute-> odd && myroute-> y == Y_PLACE)
+					make_array_trace_odd(myroute-> trace, mytrace, ship_id);
+
+				else make_array_trace(myroute-> trace, mytrace, ship_id);
 				mytrace_computed = true;
 				for_place = (myroute-> y == Y_PLACE) ? true : false; 
 				myroute->y = (for_place) ? myroute-> y - YSHIP : myroute-> y;
@@ -539,9 +564,9 @@ bool assign_trace(int first_trace)
 	{           
 		if (places[i].available)
 		{
-			printf("alla nave %d ho assegnato a rotta %d\n", first_trace, i);
 			routes[first_trace].trace = places[i].enter_trace;
 			routes[first_trace].y = Y_PLACE;
+			routes[first_trace].odd = ( i % 2 != 0);
 			places[i].available = false;
 			places[i].ship_id = first_trace;
 			return true;
@@ -549,7 +574,6 @@ bool assign_trace(int first_trace)
 
 		else if (places[i].ship_id == first_trace)
 		{
-			printf("sono nella parte sbagliata\n");
 			routes[first_trace].trace = places[i].exit_trace;
 			routes[first_trace].y = Y_EXIT;
 			places[i].available = true;
