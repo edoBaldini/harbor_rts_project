@@ -6,7 +6,7 @@
 #include "ptask.h"
 
 #define XWIN            1400        // width monitor
-#define YWIN            680         // height monitor
+#define YWIN            900         // height monitor
 #define XSHIP           18          // width dimension of the ship  
 #define YSHIP           54          // height dimension of the ship
 #define PERIOD          40          // in ms
@@ -85,6 +85,8 @@ int ships_activated = 0;
 bool end = false;
 bool sem = true;
 int aux_thread = 0;
+int request_access[MAX_SHIPS];
+bool reply_access[MAX_SHIPS];
 
 //------------------------------------------------------------------------------
 // FUNCTIONS FOR RADAR
@@ -329,12 +331,9 @@ float ylinear_movement(float y, float ytarget_pos, float vel, float degree)
  	for (j = 0; j < 60; ++j)
  	{
  		color = getpixel(sea, fleet[id].x, fleet[id].y - j);
- 		for (i = 0; i < ships_activated; ++i)
- 		{
- 			found = check_ship(i, color);
- 			if (found)
- 				return true;
- 		}
+
+ 		if (color != sea_color && color != -1)
+ 			return true;
  	}
  	return false;
  }
@@ -345,6 +344,7 @@ float ylinear_movement(float y, float ytarget_pos, float vel, float degree)
 bool found_ship = false;
 bool mytrace_computed = false;
 bool for_place = false;
+bool permission = false;
 int i;
 int ship_id;
 pair mytrace[XPORT * YPORT];
@@ -367,25 +367,14 @@ struct timespec dt;
 	{
 		found_ship = check_forward(ship_id);
 
-		if (myroute-> trace == NULL)
+		//if (myroute-> trace == NULL)
+		//{
+		if (found_ship)
 		{
-			if (!found_ship){
-		
-			myship-> vel = 100;
-			myship-> traj_grade = degree_rect(myship-> x, myship-> y, 
-													myroute-> x, myroute-> y);
-			
-			myship-> x = xlinear_movement(myship-> x, myroute-> x, myship-> vel, 
-												myship-> traj_grade);
-			
-			myship-> y = ylinear_movement(myship-> y, myroute-> y, myship-> vel, 
-												myship-> traj_grade);
+			myship->x = myship->x;
+			myship-> y = myship-> y;
 		}
-
-
-		}
-
-		else 
+		else
 		{
 			if (!mytrace_computed)
 			{
@@ -397,44 +386,69 @@ struct timespec dt;
 			objective =  (myship-> vel) * FRAME_PERIOD; //sqrtf((myship-> x * myship-> x) + (myship->y * myship-> y)) + myship-> vel * PERIOD * FRAME_PERIOD;
 		
 			acc = distance_vector(myship-> x, myship-> y, mytrace[i].x, mytrace[i].y);
-			if (acc >= objective)
-			{
-				myship-> traj_grade = degree_rect(myship-> x, myship-> y, 
-										mytrace[i + 60].x, mytrace[i + 60].y);//degree_rect(myship-> x, myship-> y, trace[i].x, trace[i].y);//;
-				
-				if(mytrace[i + 60].x == 0)
+
+			if (fabs(myship-> y - YGUARD_POS) >= EPSILON){
+
+				if (acc >= objective)
+				{
 					myship-> traj_grade = degree_rect(myship-> x, myship-> y, 
+											mytrace[i + 60].x, mytrace[i + 60].y);//degree_rect(myship-> x, myship-> y, trace[i].x, trace[i].y);//;
+				
+					if(mytrace[i + 60].x == 0)
+						myship-> traj_grade = degree_rect(myship-> x, myship-> y, 
 												mytrace[i].x, mytrace[i].y);
 			
-				myship->x = mytrace[i].x;
-				myship->y = mytrace[i].y;
-				acc = 0;
+					myship->x = mytrace[i].x;
+					myship->y = mytrace[i].y;
+					acc = 0;
 
+				}	
+				i++;
 			}
-			i++;
-
-			if (myship-> y <= myroute-> y){
-				myship->traj_grade = - M_PI / 2;
-				myship-> y = ylinear_movement(myship->y, myroute-> y - YSHIP, myship-> vel, myship-> traj_grade);
-			}
-
-			if (for_place)
+			else
 			{
-				if (fabs(myship-> x - myroute-> x) <= EPSILON && fabs(myship-> y - (myroute-> y - YSHIP)) <= EPSILON)
+				request_access[ship_id] = YGUARD_POS;
+				permission = reply_access[ship_id];
+			}
+
+			if (permission)
+			{
+				if (acc >= objective)
 				{
+					myship-> traj_grade = degree_rect(myship-> x, myship-> y, 
+											mytrace[i + 60].x, mytrace[i + 60].y);//degree_rect(myship-> x, myship-> y, trace[i].x, trace[i].y);//;
+				
+					if(mytrace[i + 60].x == 0)
+						myship-> traj_grade = degree_rect(myship-> x, myship-> y, 
+												mytrace[i].x, mytrace[i].y);
+			
+					myship->x = mytrace[i].x;
+					myship->y = mytrace[i].y;
+					acc = 0;
+
+				}	
+				i++;
+
+				if (for_place)
+				{
+
+					if (fabs(myship-> x - myroute-> x) <= EPSILON && fabs(myship-> y - (myroute-> y - YSHIP)) <= EPSILON)
+					{
 					
-					dt.tv_sec = 5;
-					dt.tv_nsec = 0;
-					clock_nanosleep(CLOCK_MONOTONIC, 0, &dt, NULL);
+						dt.tv_sec = 5;
+						dt.tv_nsec = 0;
+						clock_nanosleep(CLOCK_MONOTONIC, 0, &dt, NULL);
+
+					}
+				}
+				else if (fabs(myship-> x - myroute-> x) <= EPSILON && fabs(myship-> y - myroute-> y) <= EPSILON)
+				{
+					mytrace_computed = false;
+					i = 0;
 				}
 			}
-			else if (fabs(myship-> x - myroute-> x) <= EPSILON && fabs(myship-> y - myroute-> y) <= EPSILON)
-			{
-				mytrace_computed = false;
-				i = 0;
-			}
-
 		}
+
 		if (deadline_miss(id))
 		{   
 			printf("%d) deadline missed! ship\n", id);
@@ -463,13 +477,11 @@ bool try_access_port()
 int j;
 	for (j = 0; j < ships_activated; ++j)
 		{
-			if (fabs(YGUARD_POS - fleet[j].y) <= EPSILON)
+			if (fabs(fleet[j].y - YGUARD_POS) <= EPSILON && !reply_access[j])
 			{
 				routes[j].y = YPORT;
 				routes[j].x = XPORT;
-				//fleet[j].vel = 100.0;
-				routes[j].trace =  load_bitmap("w1.bmp", NULL);
-
+				reply_access[j] = true;
 				return j;
 			}
 		}
@@ -486,6 +498,7 @@ bool assign_trace(int first_trace)
 			routes[first_trace].trace = places[i].trace;
 			routes[first_trace].y = Y_PLACE;
 			places[i].available = false;
+
 			return true;
 		}
 	} 
@@ -553,7 +566,7 @@ int i;
 	clear_bitmap(radar);
 
 	port_bmp = load_bitmap("port.bmp", NULL);
-	trace = load_bitmap("t2.bmp", NULL);
+	trace = load_bitmap("w1.bmp", NULL);
 	circle(radar, R_BMP_W / 2, R_BMP_H / 2, R_BMP_H / 2, makecol(255, 255, 255));
 	fill_places(trace);
 	// Task private variables
@@ -636,9 +649,9 @@ int actual_index = ships_activated + 1;
 		fleet[ships_activated].x = ((ships_activated * 144) % 864) + 54; //(ships_activated * 55 + 150) % PORT_BMP_W;
 		fleet[ships_activated].y = random_in_range(PORT_BMP_H, YWIN);
 		//fleet[ships_activated].vel = VEL;
-		routes[ships_activated].x = fleet[ships_activated].x;
+		routes[ships_activated].x = XPORT;//fleet[ships_activated].x;
 		routes[ships_activated].y = YGUARD_POS;
-		routes[ships_activated].trace = NULL;
+		routes[ships_activated].trace = load_bitmap("t1_a.bmp", NULL);
 		printf("%f\n", fleet[ships_activated].x);
 		ships_activated += 1;
 
