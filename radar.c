@@ -41,7 +41,7 @@
 #define PORT_BMP_W      900
 #define PORT_BMP_H      900
 #define	Y_PLACE 		253
-#define Y_EXIT			400
+#define Y_EXIT			330
 
 //-----------------------------------------------------------------------------
 // GLOBAL STRUCTURE
@@ -181,6 +181,8 @@ t[0] = create_bitmap(PORT_BMP_W, PORT_BMP_H);
 clear_to_color(t[0], makecol(255,0,255));
 t[0] = t_bmp1;
 places[0].enter_trace = t[0];
+places[0].exit_trace = create_bitmap(PORT_BMP_W, PORT_BMP_H);
+places[0].exit_trace = load_bitmap("e1.bmp", NULL);
 places[0].available = true;
 
 //t[1] = create_bitmap(PORT_BMP_W, PORT_BMP_H);
@@ -226,6 +228,20 @@ draw_sprite_h_flip(places[3].enter_trace, t[1], 0,0);*/
 
 }
 
+void reverse_array(pair trace[XPORT * YPORT], int last_index)
+{
+int i;
+pair aux;
+int size = last_index;
+	for(i = 0; i < size / 2; ++i)
+	{
+		aux = trace[i];
+		trace[i] = trace[last_index];
+		trace[last_index] = aux;
+		last_index --;
+	}
+}
+
 
 void make_array_trace(BITMAP * t, pair trace[XPORT * YPORT], int id, bool odd)
 {
@@ -233,7 +249,6 @@ int color;
 int index = 0;
 int i, j;
 int last_index;
-	
 for (j = PORT_BMP_H; j > 0; --j)   
 	{
 		if (odd)
@@ -262,6 +277,8 @@ for (j = PORT_BMP_H; j > 0; --j)
 		}
 	}
 	last_index = -- index;
+	if (request_exit[id] == Y_EXIT)
+		reverse_array(trace, last_index);
 	routes[id].x = trace[last_index].x;
 }
 
@@ -305,19 +322,38 @@ float vel;
 	else return (fabs(vel) > s_vel) ? s_vel : vel; 
 }
 
+void follow_track_frw(int id, int i, pair mytrace[XPORT * YPORT])
+{
+float aux;
+
+	if (request_exit[id] == Y_EXIT && fleet[id].y <= (Y_EXIT - EPSILON))
+	{
+		aux = 5000/PERIOD;
+		fleet[id].y += (Y_EXIT - Y_PLACE + YSHIP) / aux;
+		fleet[id].traj_grade -= (M_PI / 2) / aux;
+	}
+	else
+	{
+		fleet[id].traj_grade = degree_rect(fleet[id].x, fleet[id].y, 
+						mytrace[i + 60].x, mytrace[i + 60].y);
+		fleet[id].x = mytrace[i].x;
+		fleet[id].y = mytrace[i].y;
+
+	}
+}
 
  bool check_forward(int id)
  {
  int i, j;
  int color;
 
- 	for (j = 0; j < 60; ++j)
- 	{
- 		color = getpixel(sea, fleet[id].x, fleet[id].y - j);
 
- 		if (color != sea_color && color != -1)
+ 		color = getpixel(sea, fleet[id].x, fleet[id].y - 60);
+
+ 		if (color != sea_color && color != -1){
  			return true;
- 	}
+ 		}
+ 	
  	return false;
  }
 
@@ -362,24 +398,14 @@ const int id = get_task_index(arg);
 				for_place = (myroute-> y == Y_PLACE) ? true : false; 
 				myroute->y = (for_place) ? myroute-> y - YSHIP : myroute-> y;
 			}
-
 			objective =  (6 * myship-> vel) * FRAME_PERIOD; // before, without 6 * period 40 and DLINE 45
 			acc = distance_vector(myship-> x, myship-> y, mytrace[i].x, mytrace[i].y);
 			
 			if (myship-> y > YGUARD_POS + EPSILON){
-				if (acc >= objective)
-				{
-					myship-> traj_grade = degree_rect(myship-> x, myship-> y, 
-											mytrace[i + 60].x, mytrace[i + 60].y);
-			
-					myship->x = mytrace[i].x;
-					myship->y = mytrace[i].y;
-					acc = 0;
-
-				}	
+				follow_track_frw(ship_id, i, mytrace);
 				i++;
 			}
-			else
+			else if (request_access[ship_id] != YGUARD_POS)
 			{
 				request_access[ship_id] = YGUARD_POS;
 				permission = reply_access[ship_id];
@@ -388,21 +414,15 @@ const int id = get_task_index(arg);
 
 			if (permission)
 			{
-				if (fabs(myship-> y - (myroute-> y)) > EPSILON)
+				if (fabs(myship-> y - myroute-> y) > EPSILON)
 				{
-					if (acc >= objective)
-					{
-						myship-> traj_grade = degree_rect(myship-> x, myship-> y, 
-												mytrace[i + 60].x, mytrace[i + 60].y);
-						
-						myship->x = mytrace[i].x;
-						myship->y = mytrace[i].y;
-
-						acc = 0;
-
-					}	
-					i++;
+					follow_track_frw(ship_id, i, mytrace);	
+					if (myship->y < mytrace[0].y && request_exit[ship_id] == Y_EXIT)
+						i = 0;
+					else
+						i++;
 				}
+							
 				if (for_place)
 				{	
 					if (fabs(myship-> y - (myroute-> y)) <= EPSILON)
@@ -410,22 +430,25 @@ const int id = get_task_index(arg);
 						if (!wait)
 						{
 							clock_gettime(CLOCK_MONOTONIC, &dt);
-							time_add_ms(&dt, 5000);
+							time_add_ms(&dt, 2000);
 							wait = true;
 						}
 						else {
 							clock_gettime(CLOCK_MONOTONIC, &now);
 							if (time_cmp(now, dt) >= 0)
 							{
-								request_exit[ship_id] = myship->x;
-								permission = reply_exit[ship_id];
-
+								request_exit[ship_id] = Y_EXIT;
+								myroute->y = YPORT;
+								mytrace_computed = false;
+								for_place = false;
+								i = 0;
 							}
 						}
 					}
 				}
 				else if (fabs(myship-> x - myroute-> x) <= EPSILON && fabs(myship-> y - myroute-> y) <= EPSILON)
 				{	
+
 					mytrace_computed = false;
 					i = 0;
 				}
@@ -469,8 +492,8 @@ int j;
 bool assign_trace(int first_trace)
  {
  int i;
-	for (i = 0; i < 13; i++)
-	{           
+	for (i = 0; i < 8; i++)
+	{         
 		if (places[i].available)
 		{
 			routes[first_trace].trace = places[i].enter_trace;
@@ -482,11 +505,11 @@ bool assign_trace(int first_trace)
 		}
 
 		else if (places[i].ship_id == first_trace)
-		{
+		{	
 			routes[first_trace].trace = places[i].exit_trace;
-			routes[first_trace].y = Y_EXIT;
-			places[i].available = true;
-			places[i].ship_id = -1;
+			routes[first_trace].y = YPORT;
+			//places[i].available = true;
+			//places[i].ship_id = -1;
 			return true;
 		}
 	} 
@@ -527,9 +550,10 @@ const int id = get_task_index(arg);
 
 		for (i = 0; i < ships_activated; i++)
 		{
-			if (reply_exit[i])
+			if (request_exit[i] == Y_EXIT)
 			{
-				access_route = assign_trace(first_trace);
+				access_route = assign_trace(i);
+				reply_exit[i] = access_route;
 			}
 		}
 
@@ -576,12 +600,13 @@ int i;
 		clear_to_color(sea, sea_color);
 		for (i = 0; i < ships_activated; i++ )
 			pivot_sprite(sea, fleet[i].boat, fleet[i].x, fleet[i].y, 
-							fleet[i].boat-> w / 2, 0, ftofix(degree_fix(fleet[i].traj_grade)+64));
+							fleet[i].boat-> w / 2, 0, itofix(degree_fix(fleet[i].traj_grade)+64));
 
 		blit(sea, back_sea_bmp, 0, 0, 0,0,sea->w, sea->h);
 		draw_sprite(back_sea_bmp, port_bmp, 0, 0);
-		for (int k = 0; k < 2; k++)
-			draw_sprite(back_sea_bmp, places[k].enter_trace, 0,0);
+		//for (int k = 0; k < 1; k++)
+		//if (routes[0].trace != NULL)
+		//	draw_sprite(back_sea_bmp, routes[0].trace, 0,0);
 
 		putpixel(back_sea_bmp, XPORT, YPORT, makecol(255,0,255));
 		blit(back_sea_bmp, screen, 0,0,0,0,back_sea_bmp->w, back_sea_bmp->h); 
