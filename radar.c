@@ -240,7 +240,7 @@ int size = last_index;
 }
 
 
-void make_array_trace(BITMAP * t, pair trace[XPORT * YPORT], int id, bool odd)
+int make_array_trace(BITMAP * t, pair trace[XPORT * YPORT], int id, bool odd)
 {
 int color;
 int index = 0;
@@ -279,6 +279,7 @@ for (j = PORT_BMP_H; j > 0; --j)
 		reverse_array(trace, last_index);
 
 	routes[id].x = trace[last_index].x;
+	return last_index;
 }
 
 //------------------------------------------------------------------------------
@@ -297,34 +298,19 @@ float degree_rect(float x1, float y1, float x2, float y2)
 
 }
 
-void follow_track_frw(int id, int i, pair mytrace[XPORT * YPORT])
-{
-
-	fleet[id].traj_grade = degree_rect(fleet[id].x, fleet[id].y, 
-						mytrace[i + 60].x, mytrace[i + 60].y);
-	fleet[id].x = mytrace[i].x;
-	fleet[id].y = mytrace[i].y;
-	
-}
-
-void rotate90_ship(int id, int y1, int y2)
-{
-float aux = 5000/PERIOD;
-	fleet[id].y += (y2 - y1) / aux;
-	fleet[id].traj_grade -= (M_PI / 2) / aux;
-}
-
  bool check_forward(int id)
  {
  int i, j;
  int color;
 
-
- 		color = getpixel(sea, fleet[id].x, fleet[id].y - 60);
+ 	for (j = 2; j < 60; ++j )
+ 	{
+ 		color = getpixel(sea, fleet[id].x, fleet[id].y - j);
 
  		if (color != sea_color && color != -1){
  			return true;
  		}
+ 	}
  	
  	return false;
  }
@@ -340,11 +326,34 @@ bool check_yposition(int id, int y)
 	return fabs(fleet[id].y - y) <= EPSILON;
 }
 
+void follow_track_frw(int id, int i, pair mytrace[XPORT * YPORT], int last_index)
+{
+	if(!check_spec_position(id, routes[id].x, routes[id].y))
+	{
+		fleet[id].x = mytrace[i].x;
+		fleet[id].y = mytrace[i].y;
+
+		if (last_index > i + 60)
+			fleet[id].traj_grade = degree_rect(fleet[id].x, fleet[id].y, 
+						mytrace[i + 60].x, mytrace[i + 60].y);
+		else 
+			fleet[id].traj_grade = fleet[id].traj_grade;
+	}
+}
+
+void rotate90_ship(int id, int y1, int y2)
+{
+float aux = 5000/PERIOD;
+	fleet[id].y += (y2 - y1) / aux;
+	fleet[id].traj_grade -= (M_PI / 2) / aux;
+}
+
  void * ship_task(void * arg)
  {
 
 int i;
 int ship_id;
+int last_index;
 pair mytrace[XPORT * YPORT];
 struct timespec dt;
 struct timespec now;
@@ -367,15 +376,16 @@ const int id = get_task_index(arg);
 	{
 		move = (check_forward(ship_id)) ? false: true;
 
-		if (!mytrace_computed)
-		{  
-			i = 0;
-			make_array_trace(routes[ship_id].trace, mytrace, ship_id, 
-								routes[ship_id].odd);
-			mytrace_computed = true;
-		}
-		if (first_step)
+		if (first_step && move)
 		{	
+
+			if (!mytrace_computed)
+			{
+				last_index = make_array_trace(routes[ship_id].trace, mytrace, ship_id, 
+								routes[ship_id].odd);
+				mytrace_computed = true;
+				i = 0;
+			}
 
 			if(check_yposition(ship_id, YGUARD_POS))
 			{
@@ -386,7 +396,7 @@ const int id = get_task_index(arg);
 
 			else
 			{
-				follow_track_frw(ship_id, i, mytrace);
+				follow_track_frw(ship_id, i, mytrace, last_index);
 				i++;
 			}
 
@@ -396,17 +406,17 @@ const int id = get_task_index(arg);
 		{
 			if(check_yposition(ship_id, YPORT))
 			{
+				reply_access[ship_id] = false;
 				request_access[ship_id] = Y_PLACE;
 				i = 0;
 				mytrace_computed = false;
 				third_step = true;
 				second_step = false;
-				reply_access[ship_id] = false;
 			}
 
 			else
 			{
-				follow_track_frw(ship_id, i, mytrace);
+				follow_track_frw(ship_id, i, mytrace, last_index);
 				i++;
 			}
 
@@ -414,8 +424,17 @@ const int id = get_task_index(arg);
 
 		if (third_step && reply_access[ship_id])
 		{
+			if (!mytrace_computed)
+			{
+				last_index = make_array_trace(routes[ship_id].trace, mytrace, ship_id, 
+								routes[ship_id].odd);
+				mytrace_computed = true;
+				i = 0;
+			}
+
 			if(check_yposition(ship_id, Y_PLACE - YSHIP))
 			{
+
 				if (!wait)
 				{
 					clock_gettime(CLOCK_MONOTONIC, &dt);
@@ -427,8 +446,8 @@ const int id = get_task_index(arg);
 					clock_gettime(CLOCK_MONOTONIC, &now);
 					if (time_cmp(now, dt) >= 0)
 					{
-						request_access[ship_id] = Y_EXIT;
 						reply_access[ship_id] = false;
+						request_access[ship_id] = Y_EXIT;
 						mytrace_computed = false;
 						third_step = false;
 						fourth_step = true;
@@ -438,7 +457,7 @@ const int id = get_task_index(arg);
 
 			else
 			{
-				follow_track_frw(ship_id, i, mytrace);
+				follow_track_frw(ship_id, i, mytrace, last_index);
 				i++;
 			}
 
@@ -446,12 +465,19 @@ const int id = get_task_index(arg);
 
 		if (fourth_step && reply_access[ship_id])
 		{
-			if (fleet[ship_id].traj_grade > M_PI && fleet[ship_id].y < Y_EXIT)
+			if (!mytrace_computed)
+			{
+				last_index = make_array_trace(routes[ship_id].trace, mytrace, ship_id, 
+								routes[ship_id].odd);
+				mytrace_computed = true;
+				i = 0;
+			}
+			if (fleet[ship_id].y < mytrace[0].y)
 				rotate90_ship(ship_id, Y_PLACE, Y_EXIT + YSHIP);
 
 			else
 			{
-				follow_track_frw(ship_id, i, mytrace);
+				follow_track_frw(ship_id, i, mytrace, last_index);
 				i++;
 			}
 		}
@@ -491,7 +517,7 @@ bool assign_trace(int ship)
 		if (places[i].available)
 		{	
 			routes[ship].trace = places[i].enter_trace;
-			routes[ship].y = Y_PLACE;
+			routes[ship].y = Y_PLACE - YSHIP;
 			routes[ship].odd = ( i % 2 != 0);
 			places[i].available = false;
 			places[i].ship_id = ship;
@@ -531,6 +557,7 @@ const int id = get_task_index(arg);
 				routes[i].y = YPORT;
 				reply_access[i] = true;
 				access_port = false;
+				ship = i;
 			}
 		}
 
