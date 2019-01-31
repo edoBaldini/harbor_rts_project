@@ -36,7 +36,6 @@
 #define YGUARD_POS      610
 #define XPORT           450         //x position of the door port
 #define YPORT           505         //y postizion of the doow port
-#define VEL             150
 
 #define PORT_BMP_W      900
 #define PORT_BMP_H      900
@@ -51,7 +50,6 @@ typedef int bool;
 typedef struct ship 
 {
 	float x, y;
-	float vel;
 	float traj_grade; 
 	BITMAP * boat;
 }ship;
@@ -92,8 +90,7 @@ int aux_thread = 0;
 
 int request_access[MAX_SHIPS];
 bool reply_access[MAX_SHIPS];
-int request_exit[MAX_SHIPS];
-bool reply_exit[MAX_SHIPS];
+
 
 //------------------------------------------------------------------------------
 // FUNCTIONS FOR RADAR
@@ -277,8 +274,10 @@ for (j = PORT_BMP_H; j > 0; --j)
 		}
 	}
 	last_index = -- index;
-	if (request_exit[id] == Y_EXIT)
+
+	if (request_access[id] == Y_EXIT)
 		reverse_array(trace, last_index);
+
 	routes[id].x = trace[last_index].x;
 }
 
@@ -290,15 +289,6 @@ int random_in_range(int min_x, int max_x)
 	return rand() % (max_x + 1 - min_x) + min_x;
 }
 
-float distance_vector(float x_start, float y_start, 
-						float x_target, float y_target)
-{
-	float x_m = x_target - x_start;
-	float y_m = y_target - y_start;
-	
-	return sqrtf((x_m * x_m) + (y_m * y_m));
-}
-
 float degree_rect(float x1, float y1, float x2, float y2)
 {   
 	float angular_coefficient = (x1 == x2) ? x1 : ((y2 - y1) / (x2 - x1));
@@ -307,39 +297,21 @@ float degree_rect(float x1, float y1, float x2, float y2)
 
 }
 
-float actual_vel(float x, float y, 
-					float xtarget_pos, float ytarget_pos, float s_vel,bool acc)
-{
-float velx;
-float vely;
-float vel;
-
-	velx = 2 * (xtarget_pos - x);
-	vely = 2 * (ytarget_pos - y);
-	vel = (sqrtf(velx * velx + vely * vely));
-	if (acc)
-		return (fabs(vel) < s_vel) ? s_vel : vel;
-	else return (fabs(vel) > s_vel) ? s_vel : vel; 
-}
-
 void follow_track_frw(int id, int i, pair mytrace[XPORT * YPORT])
 {
-float aux;
 
-	if (request_exit[id] == Y_EXIT && fleet[id].y <= (Y_EXIT - EPSILON))
-	{
-		aux = 5000/PERIOD;
-		fleet[id].y += (Y_EXIT - Y_PLACE + YSHIP) / aux;
-		fleet[id].traj_grade -= (M_PI / 2) / aux;
-	}
-	else
-	{
-		fleet[id].traj_grade = degree_rect(fleet[id].x, fleet[id].y, 
+	fleet[id].traj_grade = degree_rect(fleet[id].x, fleet[id].y, 
 						mytrace[i + 60].x, mytrace[i + 60].y);
-		fleet[id].x = mytrace[i].x;
-		fleet[id].y = mytrace[i].y;
+	fleet[id].x = mytrace[i].x;
+	fleet[id].y = mytrace[i].y;
+	
+}
 
-	}
+void rotate90_ship(int id, int y1, int y2)
+{
+float aux = 5000/PERIOD;
+	fleet[id].y += (y2 - y1) / aux;
+	fleet[id].traj_grade -= (M_PI / 2) / aux;
 }
 
  bool check_forward(int id)
@@ -357,101 +329,130 @@ float aux;
  	return false;
  }
 
+ bool check_spec_position(int id, float x, float y)
+{
+	return fabs(fleet[id].x - x) <= EPSILON &&
+			fabs(fleet[id].y - y) <= EPSILON;
+}
+
+bool check_yposition(int id, int y)
+{
+	return fabs(fleet[id].y - y) <= EPSILON;
+}
+
  void * ship_task(void * arg)
  {
 
-bool mytrace_computed = false;
-bool for_place = false;
-bool permission = false;
-bool wait = false;
 int i;
 int ship_id;
 pair mytrace[XPORT * YPORT];
-float acc;
-float objective;
-ship * myship;
-route * myroute;
 struct timespec dt;
 struct timespec now;
-
+bool mytrace_computed;
+bool first_step, second_step, third_step, fourth_step;
+bool move = true;
+bool wait = false;
 	// Task private variables
 const int id = get_task_index(arg);
 	set_activation(id);
-	ship_id = id - aux_thread;
-	myship = &fleet[ship_id];
-	myroute = &routes[ship_id]; 
-	myship-> vel = 60;
+	ship_id 			= id - aux_thread;
+	first_step			= true;
+	second_step 		= false;
+	third_step 			= false;
+	fourth_step			= false;
+	mytrace_computed 	= false;
+	i 					= 0;
 
 	while (!end) 
 	{
-		if (check_forward(ship_id))
-		{
-			myship->x = myship->x;
-			myship-> y = myship-> y;
+		move = (check_forward(ship_id)) ? false: true;
+
+		if (!mytrace_computed)
+		{  
+			i = 0;
+			make_array_trace(routes[ship_id].trace, mytrace, ship_id, 
+								routes[ship_id].odd);
+			mytrace_computed = true;
 		}
-		else
-		{
-			if (!mytrace_computed)
+		if (first_step)
+		{	
+
+			if(check_yposition(ship_id, YGUARD_POS))
 			{
-				make_array_trace(myroute-> trace, mytrace, ship_id, myroute-> odd);
-				mytrace_computed = true;
-				for_place = (myroute-> y == Y_PLACE) ? true : false; 
-				myroute->y = (for_place) ? myroute-> y - YSHIP : myroute-> y;
+				request_access[ship_id] = YPORT;
+				second_step = true;
+				first_step = false;
 			}
-			objective =  (6 * myship-> vel) * FRAME_PERIOD; // before, without 6 * period 40 and DLINE 45
-			acc = distance_vector(myship-> x, myship-> y, mytrace[i].x, mytrace[i].y);
-			
-			if (myship-> y > YGUARD_POS + EPSILON){
+
+			else
+			{
 				follow_track_frw(ship_id, i, mytrace);
 				i++;
 			}
-			else if (request_access[ship_id] != YGUARD_POS)
+
+		}
+
+		if (second_step && reply_access[ship_id])
+		{
+			if(check_yposition(ship_id, YPORT))
 			{
-				request_access[ship_id] = YGUARD_POS;
-				permission = reply_access[ship_id];
+				request_access[ship_id] = Y_PLACE;
+				i = 0;
+				mytrace_computed = false;
+				third_step = true;
+				second_step = false;
+				reply_access[ship_id] = false;
 			}
 
-
-			if (permission)
+			else
 			{
-				if (fabs(myship-> y - myroute-> y) > EPSILON)
+				follow_track_frw(ship_id, i, mytrace);
+				i++;
+			}
+
+		}
+
+		if (third_step && reply_access[ship_id])
+		{
+			if(check_yposition(ship_id, Y_PLACE - YSHIP))
+			{
+				if (!wait)
 				{
-					follow_track_frw(ship_id, i, mytrace);	
-					if (myship->y < mytrace[0].y && request_exit[ship_id] == Y_EXIT)
-						i = 0;
-					else
-						i++;
+					clock_gettime(CLOCK_MONOTONIC, &dt);
+					time_add_ms(&dt, 2000);
+					wait = true;
 				}
-							
-				if (for_place)
-				{	
-					if (fabs(myship-> y - (myroute-> y)) <= EPSILON)
+				else
+				{
+					clock_gettime(CLOCK_MONOTONIC, &now);
+					if (time_cmp(now, dt) >= 0)
 					{
-						if (!wait)
-						{
-							clock_gettime(CLOCK_MONOTONIC, &dt);
-							time_add_ms(&dt, 2000);
-							wait = true;
-						}
-						else {
-							clock_gettime(CLOCK_MONOTONIC, &now);
-							if (time_cmp(now, dt) >= 0)
-							{
-								request_exit[ship_id] = Y_EXIT;
-								myroute->y = YPORT;
-								mytrace_computed = false;
-								for_place = false;
-								i = 0;
-							}
-						}
+						request_access[ship_id] = Y_EXIT;
+						reply_access[ship_id] = false;
+						mytrace_computed = false;
+						third_step = false;
+						fourth_step = true;
 					}
 				}
-				else if (fabs(myship-> x - myroute-> x) <= EPSILON && fabs(myship-> y - myroute-> y) <= EPSILON)
-				{	
+			}
 
-					mytrace_computed = false;
-					i = 0;
-				}
+			else
+			{
+				follow_track_frw(ship_id, i, mytrace);
+				i++;
+			}
+
+		}
+
+		if (fourth_step && reply_access[ship_id])
+		{
+			if (fleet[ship_id].traj_grade > M_PI && fleet[ship_id].y < Y_EXIT)
+				rotate90_ship(ship_id, Y_PLACE, Y_EXIT + YSHIP);
+
+			else
+			{
+				follow_track_frw(ship_id, i, mytrace);
+				i++;
 			}
 		}
 
@@ -466,19 +467,12 @@ const int id = get_task_index(arg);
 	return NULL;
  }
 
-bool check_spec_position(int id, float x, float y)
-{
-	return fabs(fleet[id].x - x) <= EPSILON &&
-			fabs(fleet[id].y - y) <= EPSILON;
-}
-
-
 bool try_access_port()
 {
 int j;
 	for (j = 0; j < ships_activated; ++j)
 		{
-			if (fabs(fleet[j].y - YGUARD_POS) <= EPSILON && !reply_access[j])
+			if (check_yposition(j, YGUARD_POS))
 			{
 				routes[j].y = YPORT;
 				routes[j].x = XPORT;
@@ -489,25 +483,25 @@ int j;
 	return -1;
  }
 
-bool assign_trace(int first_trace)
+bool assign_trace(int ship)
  {
  int i;
 	for (i = 0; i < 8; i++)
 	{         
 		if (places[i].available)
-		{
-			routes[first_trace].trace = places[i].enter_trace;
-			routes[first_trace].y = Y_PLACE;
-			routes[first_trace].odd = ( i % 2 != 0);
+		{	
+			routes[ship].trace = places[i].enter_trace;
+			routes[ship].y = Y_PLACE;
+			routes[ship].odd = ( i % 2 != 0);
 			places[i].available = false;
-			places[i].ship_id = first_trace;
+			places[i].ship_id = ship;
 			return true;
 		}
 
-		else if (places[i].ship_id == first_trace)
+		else if (places[i].ship_id == ship)
 		{	
-			routes[first_trace].trace = places[i].exit_trace;
-			routes[first_trace].y = YPORT;
+			routes[ship].trace = places[i].exit_trace;
+			routes[ship].y = YPORT;
 			//places[i].available = true;
 			//places[i].ship_id = -1;
 			return true;
@@ -518,45 +512,55 @@ bool assign_trace(int first_trace)
 
 void * controller_task(void *arg)
 {
-int first_trace, i;
+int ship;
+int i = 0;
 bool access_port = true;
-bool access_route = false;
+bool access_place = true;
+
+
 const int id = get_task_index(arg);
 	set_activation(id);
 
-	while (!end) {
-		if (access_port)
+	while (!end) 
+	{
+		if (request_access[i] == YPORT)
 		{
-			first_trace = try_access_port();
-			if (first_trace >= 0)
+			if (access_port)
+			{
+				routes[i].x = XPORT;
+				routes[i].y = YPORT;
+				reply_access[i] = true;
 				access_port = false;
-		}
-
-	   else
-		{
-			if (check_spec_position(first_trace, XPORT, YPORT))
-			{
-				//fleet[i].traj_grade = (- M_PI / 2);
-				access_route = assign_trace(first_trace);
-				if (access_route)
-				{
-					access_port = true;
-					first_trace = -1;     
-				}
-
-			}
-
-		}
-
-		for (i = 0; i < ships_activated; i++)
-		{
-			if (request_exit[i] == Y_EXIT)
-			{
-				access_route = assign_trace(i);
-				reply_exit[i] = access_route;
 			}
 		}
 
+		if (request_access[i] == Y_PLACE)
+		{
+			if (!access_port && access_place && assign_trace(i))
+			{
+				reply_access[i] = true;
+				access_place = false;
+				access_port = true;
+			}
+			//else reply_access[i] = false;
+		}
+
+		
+		if (check_yposition(i, Y_PLACE))
+			access_place = true;
+
+		if (request_access[i] == Y_EXIT && access_place)
+		{ 
+			if (assign_trace(i))
+			{
+				reply_access[i] = true;
+				access_place = false;
+			}
+			//else reply_access[i] = false;
+		}
+
+		i = (i < ships_activated) ? i + 1 : 0;
+		
 		if (deadline_miss(id))
 		{   
 			printf("%d) deadline missed! ship\n", id);
@@ -604,9 +608,9 @@ int i;
 
 		blit(sea, back_sea_bmp, 0, 0, 0,0,sea->w, sea->h);
 		draw_sprite(back_sea_bmp, port_bmp, 0, 0);
-		//for (int k = 0; k < 1; k++)
-		//if (routes[0].trace != NULL)
-		//	draw_sprite(back_sea_bmp, routes[0].trace, 0,0);
+		for (int k = 0; k < 1; k++)
+			if (routes[0].trace != NULL)
+				draw_sprite(back_sea_bmp, routes[0].trace, 0,0);
 
 		putpixel(back_sea_bmp, XPORT, YPORT, makecol(255,0,255));
 		blit(back_sea_bmp, screen, 0,0,0,0,back_sea_bmp->w, back_sea_bmp->h); 
