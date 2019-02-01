@@ -348,7 +348,7 @@ void follow_track_frw(int id, int i, pair mytrace[XPORT * YPORT], int last_index
 
 void rotate90_ship(int id, int y1, int y2)
 {
-float aux = 5000/PERIOD;
+float aux = 5000 / PERIOD;
 	
 	fleet[id].y += (y2 - y1) / aux;
 
@@ -356,6 +356,28 @@ float aux = 5000/PERIOD;
 		fleet[id].traj_grade -= (M_PI / 2) / aux;
 	else
 		fleet[id].traj_grade += (M_PI / 2) / aux;
+}
+
+bool exit_ship(int id)
+{
+float aux = 1000 / PERIOD;
+	if(fleet[id].x < XPORT)
+	{
+		if (fleet[id].x > -YSHIP)
+		{
+			fleet[id].x -= YSHIP / aux;
+			return false;
+		}
+		else return true;
+	}
+	else
+	{	if (fleet[id].x < PORT_BMP_W + YSHIP)
+		{	
+			fleet[id].x += YSHIP/ aux;
+			return false;
+		}
+		else return true;
+	}
 }
 
  void * ship_task(void * arg)
@@ -371,6 +393,7 @@ bool mytrace_computed;
 bool first_step, second_step, third_step, fourth_step;
 bool move = true;
 bool wait = false;
+bool termination = false;
 	// Task private variables
 const int id = get_task_index(arg);
 	set_activation(id);
@@ -382,7 +405,7 @@ const int id = get_task_index(arg);
 	mytrace_computed 	= false;
 	i 					= 0;
 
-	while (!end) 
+	while (!end && !termination) 
 	{
 		move = (check_forward(ship_id)) ? false: true;
 
@@ -494,12 +517,10 @@ const int id = get_task_index(arg);
 			if (check_yposition(ship_id, YPORT))
 				request_access[ship_id] = -1;
 
-			if (check_spec_position(ship_id, routes[ship_id].x, routes[ship_id].y))
+			if (request_access[ship_id] == -1 )
 			{
-				printf("distruggp\n");
-				destroy_bitmap(fleet[i].boat);
-				destroy_bitmap(routes[i].trace);
-			//pthread_join(i + aux_thread, NULL);
+				reply_access[ship_id] = -2;
+				termination = exit_ship(ship_id);
 			}
 		}
 
@@ -510,7 +531,6 @@ const int id = get_task_index(arg);
 		wait_for_activation(id);
 
 	}
-
 	return NULL;
  }
 
@@ -571,7 +591,6 @@ bool assign_trace(int ship)
  	{
  		if (places[i].ship_id == ship)
  		{
-// 			printf("liberata la posizione i %d per la nave %d\n", i, ship);
  			places[i].available = true;
  			places[i].ship_id = -1;
  		}
@@ -594,6 +613,7 @@ const int id = get_task_index(arg);
 
 	while (!end) 
 	{
+
 		if (request_access[i] == YPORT)
 		{
 			if (access_port)
@@ -621,8 +641,7 @@ const int id = get_task_index(arg);
 			}
 		}
 
-		
-		if (check_yposition(ship, Y_PLACE))
+		if (check_yposition(ship, Y_EXIT))
 		{
 			access_place = true;
 			ship = -1;
@@ -638,15 +657,14 @@ const int id = get_task_index(arg);
 			}
 		}
 
-		if (request_access[i] == -1)
+		if (request_access[i] == -1 && check_yposition(i, YPORT))
 		{
 			free_trace(i);
 			access_place = true;
-			ships_exits += 1;
 		}
 
-		i = (i < ships_activated) ? i + 1 : 0 + ships_exits;
-		
+		i = (i < ships_activated) ? i + 1 : 0;
+
 		if (deadline_miss(id))
 		{   
 			printf("%d) deadline missed! ship\n", id);
@@ -688,7 +706,7 @@ int i;
 	while (!end) {
 
 		clear_to_color(sea, sea_color);
-		for (i = 0; i < ships_activated; i++ )
+		for (i = 0; i < ships_activated; ++i)
 			pivot_sprite(sea, fleet[i].boat, fleet[i].x, fleet[i].y, 
 							fleet[i].boat-> w / 2, 0, itofix(degree_fix(fleet[i].traj_grade)+64));
 
