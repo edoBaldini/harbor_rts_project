@@ -171,9 +171,13 @@ float degree_fix(float grade)
 
 void fill_places(BITMAP * t_bmp1, BITMAP * t_bmp2)
 {
-int i;
+int i, j;
 BITMAP * t[13];
-
+for (j = 0; j < 8; ++j)
+{
+	places[j].ship_id = 1;
+	places[j].available = false;
+}
 t[0] = create_bitmap(PORT_BMP_W, PORT_BMP_H);
 clear_to_color(t[0], makecol(255,0,255));
 t[0] = t_bmp1;
@@ -182,13 +186,14 @@ places[0].exit_trace = create_bitmap(PORT_BMP_W, PORT_BMP_H);
 places[0].exit_trace = load_bitmap("e1.bmp", NULL);
 places[0].available = true;
 
-//t[1] = create_bitmap(PORT_BMP_W, PORT_BMP_H);
-//clear_bitmap(t[1]);
-//places[1].enter_trace = t[1];
 places[1].enter_trace = create_bitmap(PORT_BMP_W, PORT_BMP_H);
 clear_to_color(places[1].enter_trace, makecol(255,0,255));
-draw_sprite_h_flip(places[1].enter_trace, t[0],0,0);
+draw_sprite_h_flip(places[1].enter_trace, places[0].enter_trace,0,0);
+places[1].exit_trace = create_bitmap(PORT_BMP_W, PORT_BMP_H);
+clear_to_color(places[1].exit_trace, makecol(255,0,255));
+draw_sprite_h_flip(places[1].exit_trace, places[0].exit_trace,0,0);
 places[1].available = true;
+
 
 /*t[1] = create_bitmap(PORT_BMP_W, PORT_BMP_H);
 clear_bitmap(t[1]);
@@ -328,7 +333,7 @@ bool check_yposition(int id, int y)
 
 void follow_track_frw(int id, int i, pair mytrace[XPORT * YPORT], int last_index)
 {
-	if(!check_spec_position(id, routes[id].x, routes[id].y))
+	if(i <= last_index)
 	{
 		fleet[id].x = mytrace[i].x;
 		fleet[id].y = mytrace[i].y;
@@ -344,8 +349,13 @@ void follow_track_frw(int id, int i, pair mytrace[XPORT * YPORT], int last_index
 void rotate90_ship(int id, int y1, int y2)
 {
 float aux = 5000/PERIOD;
+	
 	fleet[id].y += (y2 - y1) / aux;
-	fleet[id].traj_grade -= (M_PI / 2) / aux;
+
+	if (fleet[id]. x > XPORT)
+		fleet[id].traj_grade -= (M_PI / 2) / aux;
+	else
+		fleet[id].traj_grade += (M_PI / 2) / aux;
 }
 
  void * ship_task(void * arg)
@@ -480,6 +490,17 @@ const int id = get_task_index(arg);
 				follow_track_frw(ship_id, i, mytrace, last_index);
 				i++;
 			}
+
+			if (check_yposition(ship_id, YPORT))
+				request_access[ship_id] = -1;
+
+			if (check_spec_position(ship_id, routes[ship_id].x, routes[ship_id].y))
+			{
+				printf("distruggp\n");
+				destroy_bitmap(fleet[i].boat);
+				destroy_bitmap(routes[i].trace);
+			//pthread_join(i + aux_thread, NULL);
+			}
 		}
 
 		if (deadline_miss(id))
@@ -513,7 +534,7 @@ bool assign_trace(int ship)
  {
  int i;
 	for (i = 0; i < 8; i++)
-	{         
+	{        
 		if (places[i].available)
 		{	
 			routes[ship].trace = places[i].enter_trace;
@@ -524,24 +545,48 @@ bool assign_trace(int ship)
 			return true;
 		}
 
-		else if (places[i].ship_id == ship)
-		{	
-			routes[ship].trace = places[i].exit_trace;
-			routes[ship].y = YPORT;
-			//places[i].available = true;
-			//places[i].ship_id = -1;
-			return true;
-		}
 	} 
 	return false;
+ }
+
+ bool assign_exit(int ship)
+ {
+ int i;
+ 	for(i = 0; i < 8; i++)
+ 	{
+ 		if (places[i].ship_id == ship)
+ 		{
+			routes[ship].trace = places[i].exit_trace;
+			routes[ship].y = YPORT;
+			return true;
+ 		}
+ 	}
+ 	return false;
+ }
+
+ void free_trace(int ship)
+ {
+ int i;
+ 	for (i = 0; i < 8; i++)
+ 	{
+ 		if (places[i].ship_id == ship)
+ 		{
+// 			printf("liberata la posizione i %d per la nave %d\n", i, ship);
+ 			places[i].available = true;
+ 			places[i].ship_id = -1;
+ 		}
+ 	} 
  }
 
 void * controller_task(void *arg)
 {
 int ship;
+int ships_exits;
 int i = 0;
 bool access_port = true;
 bool access_place = true;
+bool enter_trace[MAX_SHIPS] = {false};
+bool exit_trace[MAX_SHIPS] = {false};
 
 
 const int id = get_task_index(arg);
@@ -557,36 +602,50 @@ const int id = get_task_index(arg);
 				routes[i].y = YPORT;
 				reply_access[i] = true;
 				access_port = false;
-				ship = i;
+
 			}
 		}
 
 		if (request_access[i] == Y_PLACE)
 		{
-			if (!access_port && access_place && assign_trace(i))
+			if (!access_port && access_place && !enter_trace[i])
 			{
-				reply_access[i] = true;
-				access_place = false;
-				access_port = true;
+				enter_trace[i] = assign_trace(i);
+				if (enter_trace[i])
+				{
+					reply_access[i] = true;
+					access_place = false;
+					access_port = true;
+					ship = i;
+				}
 			}
-			//else reply_access[i] = false;
 		}
 
 		
-		if (check_yposition(i, Y_PLACE))
+		if (check_yposition(ship, Y_PLACE))
+		{
 			access_place = true;
+			ship = -1;
+		}
 
-		if (request_access[i] == Y_EXIT && access_place)
+		if (request_access[i] == Y_EXIT && access_place && !exit_trace[i])
 		{ 
-			if (assign_trace(i))
+			exit_trace[i] = assign_exit(i);
+			if (exit_trace[i])
 			{
 				reply_access[i] = true;
 				access_place = false;
 			}
-			//else reply_access[i] = false;
 		}
 
-		i = (i < ships_activated) ? i + 1 : 0;
+		if (request_access[i] == -1)
+		{
+			free_trace(i);
+			access_place = true;
+			ships_exits += 1;
+		}
+
+		i = (i < ships_activated) ? i + 1 : 0 + ships_exits;
 		
 		if (deadline_miss(id))
 		{   
@@ -635,9 +694,9 @@ int i;
 
 		blit(sea, back_sea_bmp, 0, 0, 0,0,sea->w, sea->h);
 		draw_sprite(back_sea_bmp, port_bmp, 0, 0);
-		for (int k = 0; k < 1; k++)
+		for (int k = 0; k < ships_activated; k++)
 			if (routes[0].trace != NULL)
-				draw_sprite(back_sea_bmp, routes[0].trace, 0,0);
+				draw_sprite(back_sea_bmp, routes[k].trace, 0,0);
 
 		putpixel(back_sea_bmp, XPORT, YPORT, makecol(255,0,255));
 		blit(back_sea_bmp, screen, 0,0,0,0,back_sea_bmp->w, back_sea_bmp->h); 
@@ -651,8 +710,15 @@ int i;
 
 	}
 
-	for (i = 0; i < ships_activated; i++)
+	for (i = 0; i < ships_activated; ++i)
 		destroy_bitmap(fleet[i].boat);
+		
+
+	for (i = 0; i < 8; ++i)
+	{
+		destroy_bitmap(places[i].enter_trace);
+		destroy_bitmap(places[i].exit_trace);
+	}
 	
 	destroy_bitmap(port_bmp);
 	destroy_bitmap(sea);
