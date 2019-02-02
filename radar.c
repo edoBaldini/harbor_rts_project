@@ -527,10 +527,7 @@ const int id = get_task_index(arg);
 			}
 
 			if (request_access[ship_id] == -1 && reply_access[ship_id])
-			{
-				request_access[ship_id] = -2;
 				termination = exit_ship(ship_id);
-			}
 		}
 
 		if (deadline_miss(id))
@@ -540,6 +537,7 @@ const int id = get_task_index(arg);
 		wait_for_activation(id);
 
 	}
+	printf("terminated\n");
 	return NULL;
  }
 
