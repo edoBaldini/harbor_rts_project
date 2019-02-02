@@ -1,8 +1,6 @@
-#include <allegro.h>
+#include "harbor.h"
 #include <math.h>
-#include <stdlib.h>
 #include <stdio.h>
-#include <pthread.h>
 #include "ptask.h"
 
 #define XWIN			1400		// width monitor
@@ -54,46 +52,13 @@
 #define	Y_PLACE			253			//	y value of the places
 #define Y_EXIT			330			//	y value of the port exit
 
-//-----------------------------------------------------------------------------
-// GLOBAL STRUCTURE
 //------------------------------------------------------------------------------
-typedef int bool;
-
-typedef struct ship 
-{
-	float x, y;
-	float traj_grade; 
-	BITMAP * boat;
-	bool active;
-}ship;
-
-typedef struct pair
-{
-	float x, y;
-}pair;
-
-typedef struct route
-{
-	BITMAP * trace;
-	bool odd;
-	float x, y; 
-}route;
-
-typedef struct place 
-{
-	BITMAP * enter_trace;
-	BITMAP * exit_trace;
-	int ship_id;
-	bool available;
-}place; 
-
+// GLOBAL VARIABLES
+//------------------------------------------------------------------------------
 struct place places[8];
 struct ship fleet[MAX_SHIPS];
 struct route routes[MAX_SHIPS];
 
-//------------------------------------------------------------------------------
-// GLOBAL VARIABLES
-//------------------------------------------------------------------------------
 BITMAP * sea;
 BITMAP * radar;
 int sea_color;
@@ -104,16 +69,6 @@ int aux_thread = 0;
 int request_access[MAX_SHIPS];
 bool reply_access[MAX_SHIPS];
 
-
-//------------------------------------------------------------------------------
-// FUNCTIONS FOR RADAR
-//------------------------------------------------------------------------------
-
-bool check_ship(int j, int color)
-{
-	int  actual_color = 255 - (j * 10);
-	return color == makecol(0,0, actual_color);
-}
 
 void * radar_task(void * arg)
 {   
@@ -168,207 +123,7 @@ return NULL;
 }
 
 
-pair make_pair(int x, int y)
-{
-	pair coordinates;
-	coordinates.x = x;
-	coordinates.y = y;
-	return coordinates;
-}
-
-float degree_fix(float grade)
-{
-	int new_grade = (grade > 0 ? grade : (2 * M_PI + grade)) * 360 / (2 * M_PI); //from radiants to degree 360
-	return (new_grade * 256 / 360);
-}
-
-void fill_places()
-{
-int i, j;
-for (j = 0; j < 8; ++j)
-{
-	places[j].ship_id = -1;
-	places[j].available = false;
-}
-places[0].enter_trace = load_bitmap("w1.bmp", NULL);
-places[0].exit_trace = load_bitmap("x1.bmp", NULL);
-places[0].available = true;
-
-places[2].enter_trace = load_bitmap("w2.bmp", NULL);
-places[2].exit_trace = load_bitmap("x2.bmp", NULL);
-places[2].available = true;
-
-places[1].enter_trace = create_bitmap(PORT_BMP_W, PORT_BMP_H);
-clear_to_color(places[1].enter_trace, makecol(255,0,255));
-draw_sprite_h_flip(places[1].enter_trace, places[0].enter_trace,0,0);
-places[1].exit_trace = create_bitmap(PORT_BMP_W, PORT_BMP_H);
-clear_to_color(places[1].exit_trace, makecol(255,0,255));
-draw_sprite_h_flip(places[1].exit_trace, places[0].exit_trace,0,0);
-places[1].available = true;
-
-places[3].enter_trace = create_bitmap(PORT_BMP_W, PORT_BMP_H);
-clear_to_color(places[3].enter_trace, makecol(255,0,255));
-draw_sprite_h_flip(places[3].enter_trace, places[2].enter_trace,0,0);
-places[3].exit_trace = create_bitmap(PORT_BMP_W, PORT_BMP_H);
-clear_to_color(places[3].exit_trace, makecol(255,0,255));
-draw_sprite_h_flip(places[3].exit_trace, places[2].exit_trace,0,0);
-places[3].available = true;
-}
-
-void reverse_array(pair trace[X_PORT * Y_PORT], int last_index)
-{
-int i;
-pair aux;
-int size = last_index;
-	for(i = 0; i < size / 2; ++i)
-	{
-		aux = trace[i];
-		trace[i] = trace[last_index];
-		trace[last_index] = aux;
-		last_index --;
-	}
-}
-
-
-int make_array_trace(BITMAP * t, pair trace[PORT_BMP_W * PORT_BMP_H], int id, bool odd)
-{
-int color;
-int index = 0;
-int i, j;
-int last_index;
-for (j = PORT_BMP_H; j > 0; --j)   
-	{
-		if (odd)
-		{
-			for (i = PORT_BMP_W; i > 0 ; --i)
-			{
-				color = getpixel(t, i, j);
-				if (color == 0)
-				{
-					trace[index] = make_pair(i,j);
-					index ++;
-				}
-			}
-		}
-		else
-		{	
-			for (i = 0; i < PORT_BMP_W; ++i)
-			{
-				int color = getpixel(t, i, j);
-				if (color == 0)
-				{
-					trace[index] = make_pair(i,j);
-					index ++;
-				}
-			}
-		}
-	}
-	last_index = -- index;
-
-	if (request_access[id] == Y_EXIT)
-		reverse_array(trace, last_index);
-
-	routes[id].x = trace[last_index].x;
-	return last_index;
-}
-
-//------------------------------------------------------------------------------
-// FUNCTIONS FOR SHIPS
-//------------------------------------------------------------------------------
-int random_in_range(int min_x, int max_x)
-{
-	return rand() % (max_x + 1 - min_x) + min_x;
-}
-
-float degree_rect(float x1, float y1, float x2, float y2)
-{   
-	float angular_coefficient = (x1 == x2) ? x1 : ((y2 - y1) / (x2 - x1));
-	float degree = atanf(angular_coefficient);
-	return (x2 <= x1) ? degree + M_PI  : degree + 2 * M_PI;
-
-}
-
- bool check_forward(int id)
- {
- int x, y, j;
- int color;
-
- 	for (j = 2; j < 70; ++j )
- 	{
- 		//color = getpixel(sea, fleet[id].x, fleet[id].y - j);
-		x = fleet[id].x + j * cos(fleet[id].traj_grade);
-		y = fleet[id].y + j * sin(fleet[id].traj_grade);
-		color = getpixel(sea, x, y);
-
- 		if (color != sea_color && color != -1)
- 			return true;
- 		
- 	}
- 	
- 	return false;
- }
-
- bool check_spec_position(int id, float x, float y)
-{
-	return fabs(fleet[id].x - x) <= EPSILON &&
-			fabs(fleet[id].y - y) <= EPSILON;
-}
-
-bool check_yposition(int id, int y)
-{
-	return fabs(fleet[id].y - y) <= EPSILON;
-}
-
-void follow_track_frw(int id, int i, pair mytrace[X_PORT * Y_PORT], int last_index)
-{
-	if(i <= last_index)
-	{
-		fleet[id].x = mytrace[i].x;
-		fleet[id].y = mytrace[i].y;
-
-		if (last_index > i + 60)
-			fleet[id].traj_grade = degree_rect(fleet[id].x, fleet[id].y, 
-						mytrace[i + 60].x, mytrace[i + 60].y);
-		else 
-			fleet[id].traj_grade = fleet[id].traj_grade;
-	}
-}
-
-void rotate90_ship(int id, int y1, int y2)
-{
-float aux = 5000 / PERIOD;
-	
-	fleet[id].y += (y2 - y1) / aux;
-
-	if (fleet[id]. x > X_PORT)
-		fleet[id].traj_grade -= (M_PI / 2) / aux;
-	else
-		fleet[id].traj_grade += (M_PI / 2) / aux;
-}
-
-bool exit_ship(int id)
-{
-float aux = 1000 / PERIOD;
-	if(fleet[id].x < X_PORT)
-	{
-		if (fleet[id].x > -YSHIP)
-		{
-			fleet[id].x -= YSHIP / aux;
-			return false;
-		}
-		else return true;
-	}
-	else
-	{	if (fleet[id].x < PORT_BMP_W + YSHIP)
-		{	
-			fleet[id].x += YSHIP/ aux;
-			return false;
-		}
-		else return true;
-	}
-}
-
- void * ship_task(void * arg)
+void * ship_task(void * arg)
  {
 
 int i;
@@ -527,69 +282,6 @@ const int id = get_task_index(arg);
 	return NULL;
  }
 
-bool try_access_port()
-{
-int j;
-	for (j = 0; j < ships_activated; ++j)
-		{
-			if (check_yposition(j, YGUARD_POS))
-			{
-				routes[j].y = Y_PORT;
-				routes[j].x = X_PORT;
-				reply_access[j] = true;
-				return j;
-			}
-		}
-	return -1;
- }
-
-bool assign_trace(int ship)
- {
- int i;
-	for (i = 0; i < 8; i++)
-	{        
-		if (places[i].available)
-		{	
-			routes[ship].trace = places[i].enter_trace;
-			routes[ship].y = Y_PLACE - YSHIP;
-			routes[ship].odd = ( i % 2 != 0);
-			places[i].available = false;
-			places[i].ship_id = ship;
-			return true;
-		}
-
-	} 
-	return false;
- }
-
- bool assign_exit(int ship)
- {
- int i;
- 	for(i = 0; i < 8; i++)
- 	{
- 		if (places[i].ship_id == ship)
- 		{
-			routes[ship].trace = places[i].exit_trace;
-			routes[ship].y = Y_PORT;
-			return true;
- 		}
- 	}
- 	return false;
- }
-
- void free_trace(int ship)
- {
- int i;
- 	for (i = 0; i < 8; i++)
- 	{
- 		if (places[i].ship_id == ship)
- 		{
- 			places[i].available = true;
- 			places[i].ship_id = -1;
- 		}
- 	} 
- }
-
 void * controller_task(void *arg)
 {
 int ship;
@@ -599,8 +291,6 @@ bool access_port = true;
 bool access_place = true;
 bool enter_trace[MAX_SHIPS] = {false};
 bool exit_trace[MAX_SHIPS] = {false};
-bool terminated[MAX_SHIPS] = {false};
-
 
 const int id = get_task_index(arg);
 	set_activation(id);
@@ -746,10 +436,10 @@ int i;
 	destroy_bitmap(radar);
 
 	return NULL;
- }
+}
 
 void init(void)
- {
+{
 
 	allegro_init();
 	install_keyboard();
@@ -763,19 +453,10 @@ void init(void)
 	task_create(controller_task, PERIOD, DLINE, PRIO);
 	aux_thread ++;
 
- }
-
-void mark_label(BITMAP * boat)
-{
-
-	int color_assigned = 255 - (ships_activated * 10);
-	rectfill(boat, 5,7, 12, 14, makecol(0,0, color_assigned));
-	//printf("color assigned %d\n", makecol(0,0, color_assigned));
-
 }
 
 void init_ship()
- {
+{
 
 int index = (ships_activated % 3);
 BITMAP * enter_trace[3];
@@ -801,22 +482,7 @@ enter_trace[2] = load_bitmap("e3.bmp", NULL);
 
 		task_create(ship_task, PERIOD, DLINE, PRIO);
 	}
- }
-
- void terminate(int ships_terminated[MAX_SHIPS])
- {
- int i, j;
- 	for (i = 0; i < ships_activated; ++i)
-	{
-		if (!fleet[i].active && !ships_terminated[i])
-		{
-			j = join_spec_thread(i + aux_thread);
-			ships_terminated[i] = true;
-			printf("joined i %d status %d\n", i + aux_thread, j);
-		}
-	}
-
- }
+}
 
 int main()
 {
@@ -850,4 +516,305 @@ int ships_terminated[MAX_SHIPS] = {false};
 
 	terminate(ships_terminated);
 	return 0;
+}
+
+
+//------------------------------------------------------------------------------
+// FUNCTIONS FOR RADAR
+//------------------------------------------------------------------------------
+
+bool check_ship(int j, int color)
+{
+	int  actual_color = 255 - (j * 10);
+	return color == makecol(0,0, actual_color);
+}
+
+float degree_rect(float x1, float y1, float x2, float y2)
+{   
+	float angular_coefficient = (x1 == x2) ? x1 : ((y2 - y1) / (x2 - x1));
+	float degree = atanf(angular_coefficient);
+	return (x2 <= x1) ? degree + M_PI  : degree + 2 * M_PI;
+
+}
+
+float degree_fix(float grade)
+{
+	int new_grade = (grade > 0 ? grade : (2 * M_PI + grade)) * 360 / (2 * M_PI); //from radiants to degree 360
+	return (new_grade * 256 / 360);
+}
+
+//------------------------------------------------------------------------------
+// FUNCTIONS FOR SHIPS
+//------------------------------------------------------------------------------
+void reverse_array(pair trace[X_PORT * Y_PORT], int last_index)
+{
+int i;
+pair aux;
+int size = last_index;
+	for(i = 0; i < size / 2; ++i)
+	{
+		aux = trace[i];
+		trace[i] = trace[last_index];
+		trace[last_index] = aux;
+		last_index --;
+	}
+}
+
+int make_array_trace(BITMAP * t, pair trace[PORT_BMP_W * PORT_BMP_H], int id,																	bool odd)
+{
+int color;
+int index = 0;
+int i, j;
+int last_index;
+for (j = PORT_BMP_H; j > 0; --j)   
+	{
+		if (odd)
+		{
+			for (i = PORT_BMP_W; i > 0 ; --i)
+			{
+				color = getpixel(t, i, j);
+				if (color == 0)
+				{
+					trace[index] = make_pair(i,j);
+					index ++;
+				}
+			}
+		}
+		else
+		{	
+			for (i = 0; i < PORT_BMP_W; ++i)
+			{
+				int color = getpixel(t, i, j);
+				if (color == 0)
+				{
+					trace[index] = make_pair(i,j);
+					index ++;
+				}
+			}
+		}
+	}
+	last_index = -- index;
+
+	if (request_access[id] == Y_EXIT)
+		reverse_array(trace, last_index);
+
+	routes[id].x = trace[last_index].x;
+	return last_index;
+}
+
+bool check_forward(int id)
+{
+int x, y, j;
+int color;
+
+	for (j = 2; j < 70; ++j )
+	{
+		x = fleet[id].x + j * cos(fleet[id].traj_grade);
+		y = fleet[id].y + j * sin(fleet[id].traj_grade);
+		color = getpixel(sea, x, y);
+
+		if (color != sea_color && color != -1)
+			return true; 		
+	}
+	
+ 	return false;
+}
+
+bool check_spec_position(int id, float x, float y)
+{
+	return fabs(fleet[id].x - x) <= EPSILON &&
+			fabs(fleet[id].y - y) <= EPSILON;
+}
+
+bool check_yposition(int id, int y)
+{
+	return fabs(fleet[id].y - y) <= EPSILON;
+}
+
+void follow_track_frw(int id, int i, pair mytrace[X_PORT * Y_PORT], int last_index)
+{
+	if(i <= last_index)
+	{
+		fleet[id].x = mytrace[i].x;
+		fleet[id].y = mytrace[i].y;
+
+		if (last_index > i + 60)
+			fleet[id].traj_grade = degree_rect(fleet[id].x, fleet[id].y, 
+						mytrace[i + 60].x, mytrace[i + 60].y);
+		else 
+			fleet[id].traj_grade = fleet[id].traj_grade;
+	}
+}
+
+void rotate90_ship(int id, int y1, int y2)
+{
+float aux = 5000 / PERIOD;
+	
+	fleet[id].y += (y2 - y1) / aux;
+
+	if (fleet[id]. x > X_PORT)
+		fleet[id].traj_grade -= (M_PI / 2) / aux;
+	else
+		fleet[id].traj_grade += (M_PI / 2) / aux;
+}
+
+bool exit_ship(int id)
+{
+float aux = 1000 / PERIOD;
+	if(fleet[id].x < X_PORT)
+	{
+		if (fleet[id].x > -YSHIP)
+		{
+			fleet[id].x -= YSHIP / aux;
+			return false;
+		}
+		else return true;
+	}
+	else
+	{	if (fleet[id].x < PORT_BMP_W + YSHIP)
+		{	
+			fleet[id].x += YSHIP/ aux;
+			return false;
+		}
+		else return true;
+	}
+}
+
+//------------------------------------------------------------------------------
+// FUNCTIONS FOR CONTROLLER
+//------------------------------------------------------------------------------
+bool try_access_port()
+{
+int j;
+	for (j = 0; j < ships_activated; ++j)
+		{
+			if (check_yposition(j, YGUARD_POS))
+			{
+				routes[j].y = Y_PORT;
+				routes[j].x = X_PORT;
+				reply_access[j] = true;
+				return j;
+			}
+		}
+	return -1;
+}
+
+bool assign_trace(int ship)
+ {
+ int i;
+	for (i = 0; i < 8; i++)
+	{
+		if (places[i].available)
+		{	
+			routes[ship].trace = places[i].enter_trace;
+			routes[ship].y = Y_PLACE - YSHIP;
+			routes[ship].odd = ( i % 2 != 0);
+			places[i].available = false;
+			places[i].ship_id = ship;
+			return true;
+		}
+
+	} 
+	return false;
+}
+
+bool assign_exit(int ship)
+{
+int i;
+	for(i = 0; i < 8; i++)
+	{
+		if (places[i].ship_id == ship)
+		{
+			routes[ship].trace = places[i].exit_trace;
+			routes[ship].y = Y_PORT;
+			return true;
+		}
+	}
+	return false;
+}
+
+void free_trace(int ship)
+{
+int i;
+	for (i = 0; i < 8; i++)
+	{
+		if (places[i].ship_id == ship)
+		{
+			places[i].available = true;
+			places[i].ship_id = -1;
+		}
+	} 
+}
+
+//------------------------------------------------------------------------------
+// FUNCTIONS FOR AUXILIAR
+//------------------------------------------------------------------------------
+void fill_places()
+{
+int i, j;
+for (j = 0; j < 8; ++j)
+{
+	places[j].ship_id = -1;
+	places[j].available = false;
+}
+places[0].enter_trace = load_bitmap("w1.bmp", NULL);
+places[0].exit_trace = load_bitmap("x1.bmp", NULL);
+places[0].available = true;
+
+places[2].enter_trace = load_bitmap("w2.bmp", NULL);
+places[2].exit_trace = load_bitmap("x2.bmp", NULL);
+places[2].available = true;
+
+places[1].enter_trace = create_bitmap(PORT_BMP_W, PORT_BMP_H);
+clear_to_color(places[1].enter_trace, makecol(255,0,255));
+draw_sprite_h_flip(places[1].enter_trace, places[0].enter_trace,0,0);
+places[1].exit_trace = create_bitmap(PORT_BMP_W, PORT_BMP_H);
+clear_to_color(places[1].exit_trace, makecol(255,0,255));
+draw_sprite_h_flip(places[1].exit_trace, places[0].exit_trace,0,0);
+places[1].available = true;
+
+places[3].enter_trace = create_bitmap(PORT_BMP_W, PORT_BMP_H);
+clear_to_color(places[3].enter_trace, makecol(255,0,255));
+draw_sprite_h_flip(places[3].enter_trace, places[2].enter_trace,0,0);
+places[3].exit_trace = create_bitmap(PORT_BMP_W, PORT_BMP_H);
+clear_to_color(places[3].exit_trace, makecol(255,0,255));
+draw_sprite_h_flip(places[3].exit_trace, places[2].exit_trace,0,0);
+places[3].available = true;
+}
+
+void mark_label(BITMAP * boat)
+{
+
+	int color_assigned = 255 - (ships_activated * 10);
+	rectfill(boat, 5,7, 12, 14, makecol(0,0, color_assigned));
+	//printf("color assigned %d\n", makecol(0,0, color_assigned));
+
+}
+
+void terminate(int ships_terminated[MAX_SHIPS])
+{
+int i, j;
+	for (i = 0; i < ships_activated; ++i)
+	{
+		if (!fleet[i].active && !ships_terminated[i])
+		{
+			j = join_spec_thread(i + aux_thread);
+			ships_terminated[i] = true;
+			printf("joined i %d status %d\n", i + aux_thread, j);
+		}
+	}
+
+}
+
+int random_in_range(int min_x, int max_x)
+{
+	return rand() % (max_x + 1 - min_x) + min_x;
+}
+
+pair make_pair(int x, int y)
+{
+	pair coordinates;
+	coordinates.x = x;
+	coordinates.y = y;
+	return coordinates;
 }
