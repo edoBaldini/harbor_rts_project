@@ -52,6 +52,7 @@ typedef struct ship
 	float x, y;
 	float traj_grade; 
 	BITMAP * boat;
+	bool active;
 }ship;
 
 typedef struct pair
@@ -311,16 +312,19 @@ float degree_rect(float x1, float y1, float x2, float y2)
 
  bool check_forward(int id)
  {
- int i, j;
+ int x, y, j;
  int color;
 
- 	for (j = 2; j < 60; ++j )
+ 	for (j = 2; j < 70; ++j )
  	{
- 		color = getpixel(sea, fleet[id].x, fleet[id].y - j);
+ 		//color = getpixel(sea, fleet[id].x, fleet[id].y - j);
+		x = fleet[id].x + j * cos(fleet[id].traj_grade);
+		y = fleet[id].y + j * sin(fleet[id].traj_grade);
+		color = getpixel(sea, x, y);
 
- 		if (color != sea_color && color != -1){
+ 		if (color != sea_color && color != -1)
  			return true;
- 		}
+ 		
  	}
  	
  	return false;
@@ -514,7 +518,7 @@ const int id = get_task_index(arg);
 			if (fleet[ship_id].y < mytrace[0].y)
 				rotate90_ship(ship_id, Y_PLACE, Y_EXIT + YSHIP);
 
-			else
+			else if(move)
 			{
 				follow_track_frw(ship_id, i, mytrace, last_index);
 				i++;
@@ -527,7 +531,11 @@ const int id = get_task_index(arg);
 			}
 
 			if (request_access[ship_id] == -1 && reply_access[ship_id])
+			{
 				termination = exit_ship(ship_id);
+				if (termination)
+					fleet[ship_id].active = false;
+			}
 		}
 
 		if (deadline_miss(id))
@@ -613,6 +621,7 @@ bool access_port = true;
 bool access_place = true;
 bool enter_trace[MAX_SHIPS] = {false};
 bool exit_trace[MAX_SHIPS] = {false};
+bool terminated[MAX_SHIPS] = {false};
 
 
 const int id = get_task_index(arg);
@@ -678,6 +687,11 @@ const int id = get_task_index(arg);
 
 		i = (i < ships_activated) ? i + 1 : 0;
 
+		if (!fleet[i].active && !terminated[i])
+		{
+			terminated[i] = true;
+			pthread_join(tid[i], NULL);
+		}
 		if (deadline_miss(id))
 		{   
 			printf("%d) deadline missed! ship\n", id);
@@ -721,9 +735,16 @@ int i;
 
 		blit(sea, back_sea_bmp, 0, 0, 0,0,sea->w, sea->h);
 		draw_sprite(back_sea_bmp, port_bmp, 0, 0);
+		
+//	USEFUL TO VISUALIZE THE TRACKS THAT THE SHIPS ARE FOLLOWING
 		//for (int k = 0; k < ships_activated; k++)
 		//	if (routes[0].trace != NULL)
 		//		draw_sprite(back_sea_bmp, routes[k].trace, 0,0);
+		
+//	USEFUL TO VISUALIZE CHECK_FWD()
+		/*for (int k = 0; k < ships_activated; ++k)
+			for (int j = 2; j < 70; j++)
+				putpixel(back_sea_bmp, fleet[k].x + j * cos(fleet[k].traj_grade), fleet[k].y + j * sin(fleet[k].traj_grade), 0);*/
 
 		putpixel(back_sea_bmp, X_PORT, Y_PORT, makecol(255,0,255));
 		blit(back_sea_bmp, screen, 0,0,0,0,back_sea_bmp->w, back_sea_bmp->h); 
@@ -799,6 +820,7 @@ enter_trace[2] = load_bitmap("e3.bmp", NULL);
 		mark_label(fleet[ships_activated].boat);
 		fleet[ships_activated].x = ((ships_activated * 144) % 864) + 54; //(ships_activated * 55 + 150) % PORT_BMP_W;
 		fleet[ships_activated].y = random_in_range(PORT_BMP_H, YWIN);
+		fleet[ships_activated].active = true;
 		routes[ships_activated].x = X_PORT;
 		routes[ships_activated].y = YGUARD_POS;
 		routes[ships_activated].trace = enter_trace[index]; 
