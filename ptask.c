@@ -114,7 +114,7 @@ void wait_for_activation(int i)
 void wait_tasks()
 {
     for (int i = 0; i < task_counter; ++i) {
-        printf(" terminati %d\n",pthread_join(tid[i], NULL));
+
     }
 }
 
