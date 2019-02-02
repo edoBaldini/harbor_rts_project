@@ -13,6 +13,6 @@ void set_activation(int id);
 int deadline_miss(int id);
 void wait_for_activation(int id);
 void wait_tasks();
-
+int join_spec_thread(int i);
 
 #endif

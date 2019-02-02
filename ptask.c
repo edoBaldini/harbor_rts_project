@@ -5,7 +5,7 @@
 
 
 
-#define NT (32)
+#define NT (128)
 
 struct task_par {
     int id;             // task argument
@@ -114,6 +114,11 @@ void wait_for_activation(int i)
 void wait_tasks()
 {
     for (int i = 0; i < task_counter; ++i) {
-        pthread_join(tid[i], NULL);
+        printf(" terminati %d\n",pthread_join(tid[i], NULL));
     }
+}
+
+int join_spec_thread(int i)
+{
+    return pthread_join(tid[i], NULL);
 }

@@ -7,8 +7,6 @@
 
 #define XWIN            1400        // width monitor
 #define YWIN            700         // height monitor
-#define XSHIP           18          // width dimension of the ship  
-#define YSHIP           54          // height dimension of the ship
 #define PERIOD          10          // in ms
 #define DLINE           15
 #define PRIO            10
@@ -20,6 +18,10 @@
 
 #define true            1
 #define false           0
+
+#define XSHIP           18          // width dimension of the ship  
+#define YSHIP           54          // height dimension of the ship
+#define P_TIME			2000		// ship parking time, in ms
 //-----------------------------------------------------------------------------
 // GLOBAL CONSTANTS related to the radar
 //------------------------------------------------------------------------------
@@ -407,6 +409,7 @@ bool termination = false;
 	// Task private variables
 const int id = get_task_index(arg);
 	set_activation(id);
+	printf(" id task %d\n", id);
 	ship_id 			= id - aux_thread;
 	first_step			= true;
 	second_step 		= false;
@@ -481,7 +484,7 @@ const int id = get_task_index(arg);
 				if (!wait)
 				{
 					clock_gettime(CLOCK_MONOTONIC, &dt);
-					time_add_ms(&dt, 2000);
+					time_add_ms(&dt, P_TIME);
 					wait = true;
 				}
 				else
@@ -545,7 +548,6 @@ const int id = get_task_index(arg);
 		wait_for_activation(id);
 
 	}
-	printf("terminated\n");
 	return NULL;
  }
 
@@ -687,11 +689,6 @@ const int id = get_task_index(arg);
 
 		i = (i < ships_activated) ? i + 1 : 0;
 
-		if (!fleet[i].active && !terminated[i])
-		{
-			terminated[i] = true;
-			pthread_join(tid[i], NULL);
-		}
 		if (deadline_miss(id))
 		{   
 			printf("%d) deadline missed! ship\n", id);
@@ -785,8 +782,8 @@ void init(void)
 	
 	task_create(display, PERIOD, DLINE, PRIO);
 	aux_thread ++;
-	//task_create(radar_task, 3, 6, PRIO);
-	//aux_thread ++;
+	task_create(radar_task, 3, 6, PRIO);
+	aux_thread ++;
 	task_create(controller_task, PERIOD, DLINE, PRIO);
 	aux_thread ++;
 
@@ -804,7 +801,6 @@ void mark_label(BITMAP * boat)
 void init_ship()
  {
 
-int actual_index = ships_activated + 1; 
 int index = (ships_activated % 3);
 BITMAP * enter_trace[3];
 
@@ -812,14 +808,14 @@ enter_trace[0] = load_bitmap("e1.bmp", NULL);
 enter_trace[1] = load_bitmap("e2.bmp", NULL);
 enter_trace[2] = load_bitmap("e3.bmp", NULL);
 
-	if (actual_index <= MAX_SHIPS)
+	if (ships_activated < MAX_SHIPS)
 	{
 		//printf("hi new ship n* %d\n", ships_activated);
 		fleet[ships_activated].boat = create_bitmap(XSHIP, YSHIP);
 		fleet[ships_activated].boat = load_bitmap("ship_c.bmp", NULL);
 		mark_label(fleet[ships_activated].boat);
-		fleet[ships_activated].x = ((ships_activated * 144) % 864) + 54; //(ships_activated * 55 + 150) % PORT_BMP_W;
-		fleet[ships_activated].y = random_in_range(PORT_BMP_H, YWIN);
+		fleet[ships_activated].x = 0.0; //((ships_activated * 144) % 864) + 54;
+		fleet[ships_activated].y = 0.0; random_in_range(PORT_BMP_H, YWIN);
 		fleet[ships_activated].active = true;
 		routes[ships_activated].x = X_PORT;
 		routes[ships_activated].y = YGUARD_POS;
@@ -827,16 +823,31 @@ enter_trace[2] = load_bitmap("e3.bmp", NULL);
 		routes[ships_activated].odd = (index == 1);
 		ships_activated += 1;
 
-
 		task_create(ship_task, PERIOD, DLINE, PRIO);
 	}
  }
 
+ void terminate(int ships_terminated[MAX_SHIPS])
+ {
+ int i, j;
+ 	for (i = 0; i < ships_activated; ++i)
+	{
+		if (!fleet[i].active && !ships_terminated[i])
+		{
+			j = join_spec_thread(i + aux_thread);
+			ships_terminated[i] = true;
+			printf("joined i %d status %d\n", i + aux_thread, j);
+		}
+	}
+
+ }
+
 int main()
 {
-
 char scan;
 int i;
+int j;
+int ships_terminated[MAX_SHIPS] = {false};
 
 	if (MAX_SHIPS + aux_thread > MAX_THREADS)
 	{
@@ -855,10 +866,12 @@ int i;
 			init_ship();
 			i++;
 		}
+			terminate(ships_terminated);
+
 	} while (scan != KEY_ESC);
 
 	end = true;
-	wait_tasks();
 
+	terminate(ships_terminated);
 	return 0;
 }
