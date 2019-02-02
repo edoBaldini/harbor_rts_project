@@ -169,22 +169,21 @@ float degree_fix(float grade)
 	return (new_grade * 256 / 360);
 }
 
-void fill_places(BITMAP * t_bmp1, BITMAP * t_bmp2)
+void fill_places()
 {
 int i, j;
-BITMAP * t[13];
 for (j = 0; j < 8; ++j)
 {
 	places[j].ship_id = -1;
 	places[j].available = false;
 }
-t[0] = create_bitmap(PORT_BMP_W, PORT_BMP_H);
-clear_to_color(t[0], makecol(255,0,255));
-t[0] = t_bmp1;
-places[0].enter_trace = t[0];
-places[0].exit_trace = create_bitmap(PORT_BMP_W, PORT_BMP_H);
+places[0].enter_trace = load_bitmap("w1.bmp", NULL);
 places[0].exit_trace = load_bitmap("x1.bmp", NULL);
 places[0].available = true;
+
+places[2].enter_trace = load_bitmap("w2.bmp", NULL);
+places[2].exit_trace = load_bitmap("x2.bmp", NULL);
+places[2].available = true;
 
 places[1].enter_trace = create_bitmap(PORT_BMP_W, PORT_BMP_H);
 clear_to_color(places[1].enter_trace, makecol(255,0,255));
@@ -194,6 +193,13 @@ clear_to_color(places[1].exit_trace, makecol(255,0,255));
 draw_sprite_h_flip(places[1].exit_trace, places[0].exit_trace,0,0);
 places[1].available = true;
 
+places[3].enter_trace = create_bitmap(PORT_BMP_W, PORT_BMP_H);
+clear_to_color(places[3].enter_trace, makecol(255,0,255));
+draw_sprite_h_flip(places[3].enter_trace, places[2].enter_trace,0,0);
+places[3].exit_trace = create_bitmap(PORT_BMP_W, PORT_BMP_H);
+clear_to_color(places[3].exit_trace, makecol(255,0,255));
+draw_sprite_h_flip(places[3].exit_trace, places[2].exit_trace,0,0);
+places[3].available = true;
 
 /*t[1] = create_bitmap(PORT_BMP_W, PORT_BMP_H);
 clear_bitmap(t[1]);
@@ -514,12 +520,15 @@ const int id = get_task_index(arg);
 				i++;
 			}
 
-			if (check_yposition(ship_id, Y_PORT))
-				request_access[ship_id] = -1;
-
-			if (request_access[ship_id] == -1 )
+			if (check_yposition(ship_id, Y_PORT) && request_access[ship_id] != -1)
 			{
-				reply_access[ship_id] = -2;
+				reply_access[ship_id] = false;
+				request_access[ship_id] = -1;
+			}
+
+			if (request_access[ship_id] == -1 && reply_access[ship_id])
+			{
+				request_access[ship_id] = -2;
 				termination = exit_ship(ship_id);
 			}
 		}
@@ -618,6 +627,7 @@ const int id = get_task_index(arg);
 		{
 			if (access_port)
 			{
+				printf("nave %d entra al porto\n", i);
 				routes[i].x = X_PORT;
 				routes[i].y = Y_PORT;
 				reply_access[i] = true;
@@ -634,6 +644,7 @@ const int id = get_task_index(arg);
 
 				if (enter_trace[i])
 				{
+					printf("nave %d assegnato POSTO\n", i);
 					reply_access[i] = true;
 					access_place = false;
 					access_port = true;
@@ -653,13 +664,16 @@ const int id = get_task_index(arg);
 			exit_trace[i] = assign_exit(i);
 			if (exit_trace[i])
 			{
+				printf("nave %d in uscita\n", i);
 				reply_access[i] = true;
 				access_place = false;
 			}
 		}
 
-		if (request_access[i] == -1 && check_yposition(i, Y_PORT))
+		if (request_access[i] == -1 && check_yposition(i, Y_PORT) && !reply_access[i])
 		{
+			printf("nave %d libera il posto\n", i);
+			reply_access[i] = true;
 			free_trace(i);
 			access_place = true;
 		}
@@ -681,8 +695,6 @@ void * display(void *arg)
 {
 BITMAP * port_bmp;
 BITMAP * back_sea_bmp;
-BITMAP * trace1;
-BITMAP * trace2;
 int i;
 
 	back_sea_bmp = create_bitmap(PORT_BMP_W, PORT_BMP_H);
@@ -696,10 +708,8 @@ int i;
 	clear_bitmap(radar);
 
 	port_bmp = load_bitmap("port.bmp", NULL);
-	trace1 = load_bitmap("w1.bmp", NULL);
-	trace2 = load_bitmap("w1.bmp", NULL);
 	circle(radar, R_BMP_W / 2, R_BMP_H / 2, R_BMP_H / 2, makecol(255, 255, 255));
-	fill_places(trace1, trace2);
+	fill_places();
 	// Task private variables
 	const int id = get_task_index(arg);
 	set_activation(id);
@@ -768,7 +778,7 @@ void mark_label(BITMAP * boat)
 
 	int color_assigned = 255 - (ships_activated * 10);
 	rectfill(boat, 5,7, 12, 14, makecol(0,0, color_assigned));
-	printf("color assigned %d\n", makecol(0,0, color_assigned));
+	//printf("color assigned %d\n", makecol(0,0, color_assigned));
 
 }
 
@@ -785,7 +795,7 @@ enter_trace[2] = load_bitmap("e3.bmp", NULL);
 
 	if (actual_index <= MAX_SHIPS)
 	{
-		printf("hi new ship n* %d\n", ships_activated);
+		//printf("hi new ship n* %d\n", ships_activated);
 		fleet[ships_activated].boat = create_bitmap(XSHIP, YSHIP);
 		fleet[ships_activated].boat = load_bitmap("ship_c.bmp", NULL);
 		mark_label(fleet[ships_activated].boat);
@@ -821,7 +831,7 @@ int i;
 		scan = 0;
 		if (keypressed()) scan = readkey() >> 8;
 		if (scan == KEY_ENTER){
-			printf("try to create new ship\n");
+			//printf("try to create new ship\n");
 			init_ship();
 			i++;
 		}
