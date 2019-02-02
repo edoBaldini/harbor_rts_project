@@ -5,44 +5,54 @@
 #include <pthread.h>
 #include "ptask.h"
 
-#define XWIN            1400        // width monitor
-#define YWIN            700         // height monitor
-#define PERIOD          10          // in ms
-#define DLINE           15
-#define PRIO            10
-#define MAX_SHIPS       12          // max number of ship MUST BE LOWER THAN 30
-#define MAX_THREADS     32
-#define FPS             200.0
-#define FRAME_PERIOD    (1 / FPS)
-#define EPSILON         3.f        // guardian distance to the goal
+#define XWIN			1400		// width monitor
+#define YWIN			700			// height monitor
+#define PERIOD			10			// in ms
+#define DLINE			15			// in ms
+#define PRIO			10			// priority level
+#define MAX_SHIPS		12			// max number of ship MUST BE LOWER THAN 30
+#define MAX_THREADS		32			
+#define FPS				200.0		
+#define FRAME_PERIOD	(1 / FPS)
+#define EPSILON			3.f			// guardian distance to the goal
 
-#define true            1
-#define false           0
+//------------------------------------------------------------------------------
+//	FOR BOOLEAN DEFINITION
+//------------------------------------------------------------------------------
+#define true			1
+#define false			0
 
-#define XSHIP           18          // width dimension of the ship  
-#define YSHIP           54          // height dimension of the ship
+//------------------------------------------------------------------------------
+//	SHIP GLOBAL CONSTANT
+//------------------------------------------------------------------------------
+#define XSHIP			18			// width dimension of the ship  
+#define YSHIP			54			// height dimension of the ship
 #define P_TIME			2000		// ship parking time, in ms
+
 //-----------------------------------------------------------------------------
 // GLOBAL CONSTANTS related to the radar
 //------------------------------------------------------------------------------
-#define R_BMP_W         451
-#define R_BMP_H         451
+#define R_BMP_W			451			//	width of the radar
+#define R_BMP_H			451			//	height of the radar
 
-#define RMAX            450
-#define ARES            360
-#define RSTEP           1
-#define RMIN            0
-#define XRAD            450         //x center of the radar = center of the port
-#define YRAD            450         //y center of the radar = center of the port
+#define RMAX			450			//	max radius 
+#define ARES			360			// 	max alpha
+#define RSTEP			1			//	step of the radius
+#define RMIN			0			//	min radius
+#define XRAD			450			//x center of the radar = center of the port
+#define YRAD			450			//y center of the radar = center of the port
 
-#define YGUARD_POS      610
-#define X_PORT           450         //x position of the door port
-#define Y_PORT           505         //y postizion of the doow port
+//------------------------------------------------------------------------------
+//	POSITION GLOBAL CONSTANTS
+//------------------------------------------------------------------------------
+#define YGUARD_POS		610			//	y position where the ships wait
+#define X_PORT			450			//	x position of the door port
+#define Y_PORT			505			//	y postizion of the door port
 
-#define PORT_BMP_W      900
-#define PORT_BMP_H      900
-#define	Y_PLACE 		253
-#define Y_EXIT			330
+#define PORT_BMP_W		900			//	width port 
+#define PORT_BMP_H		900			//	height port
+#define	Y_PLACE			253			//	y value of the places
+#define Y_EXIT			330			//	y value of the port exit
 
 //-----------------------------------------------------------------------------
 // GLOBAL STRUCTURE
@@ -203,40 +213,6 @@ places[3].exit_trace = create_bitmap(PORT_BMP_W, PORT_BMP_H);
 clear_to_color(places[3].exit_trace, makecol(255,0,255));
 draw_sprite_h_flip(places[3].exit_trace, places[2].exit_trace,0,0);
 places[3].available = true;
-
-/*t[1] = create_bitmap(PORT_BMP_W, PORT_BMP_H);
-clear_bitmap(t[1]);
-t[1] = t_bmp2;
-places[2].enter_trace = t[1];
-places[3].enter_trace = t[1];
-draw_sprite_h_flip(places[3].enter_trace, t[1], 0,0);*/
-	/*for (i = 0; i < 13; i++)
-	{
-		t[i] = create_bitmap(PORT_BMP_W, PORT_BMP_H);
-		clear_to_color(t[i], makecol(255,0,255));
-		
-
-		if (i == 0)
-		{
-			t[i] = t_bmp;
-			places[0].enter_trace = t[i];
-		}
-
-		if (i % 2 != 0)
-		{
-			places[i].enter_trace = t[i];
-			draw_sprite_h_flip(places[i].enter_trace, t[i - 1] , 0, 0);
-		}
-		else if(i > 0)
-		{
-			pivot_scaled_sprite(t[i], t[i - 2], X_PORT, Y_PORT, X_PORT, Y_PORT, ftofix(degree_fix(-0.06)),61000);
-			places[i].enter_trace = t[i];
-		}
-
-		places[i].available = true;
-
-	}*/
-
 }
 
 void reverse_array(pair trace[X_PORT * Y_PORT], int last_index)
