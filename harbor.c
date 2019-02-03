@@ -70,26 +70,49 @@ int aux_thread = 0;
 int request_access[MAX_SHIPS];
 bool reply_access[MAX_SHIPS];
 
+
+int click_place()
+{
+int i, space;
+int half_num_parking = 4;
+int delta = 28;
+int offset = 19;
+int l_x = 121;
+int r_x = PORT_BMP_W - l_x - delta - (half_num_parking - 1) * (offset + delta);
+
+
+	if (mouse_y <= Y_PLACE && mouse_y >= Y_PLACE - YSHIP)
+	{
+		for (i = 0; i < half_num_parking; ++i)
+		{
+			space = i * (offset + delta);
+			if(mouse_x <= l_x + space + delta && mouse_x >= l_x + space)
+				return i;
+
+			else if (mouse_x <= r_x + space + delta && mouse_x >= r_x + space)
+					return i + half_num_parking;
+
+		}
+		return -1;\
+	}
+	else return -1;
+}
 void * user_task(void * arg)
 {   
-char scan = 0;
+int index_place;
 // Task private variables
 const int id = get_task_index(arg);
 	set_activation(id);
 
 	while (!end) 
 	{   
-		/*if (keypressed()) scan = readkey() >> 8;
-		if (scan == KEY_ENTER){
-			//printf("try to create new ship\n");
-			init_ship();
+		if (mouse_b && 1)
+		{
+			index_place = click_place();
+			if (index_place>= 0)
+				printf("printf i %d\n",index_place);
 		}
 
-		if (scan == KEY_ESC)
-			end = true;
-
-		terminate();*/
-	
 		if (deadline_miss(id))
 		{   
 			printf("%d) deadline missed! radar\n", id);
@@ -473,8 +496,12 @@ void init(void)
 
 	allegro_init();
 	install_keyboard();
+	install_mouse();
+
 	set_color_depth(16);
 	set_gfx_mode(GFX_AUTODETECT_WINDOWED, XWIN, YWIN,0,0);
+	enable_hardware_cursor();
+	show_mouse(screen);
 	
 	task_create(display, PERIOD, DLINE, PRIO);
 	aux_thread ++;
@@ -482,7 +509,7 @@ void init(void)
 	aux_thread ++;
 	task_create(controller_task, PERIOD, DLINE, PRIO);
 	aux_thread ++;
-	task_create(user_task, PERIOD, DLINE, PRIO);
+	task_create(user_task, 3, 6, PRIO);
 	aux_thread ++;
 
 }
@@ -552,6 +579,7 @@ int ships_terminated[MAX_SHIPS] = {false};
 		join_spec_thread(i);
 	}
 	
+	allegro_exit();
 	return 0;
 }
 

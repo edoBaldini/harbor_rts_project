@@ -114,7 +114,7 @@ void wait_for_activation(int i)
 void wait_tasks()
 {
     for (int i = 0; i < task_counter; ++i) {
-
+        pthread_join(tid[i], NULL);
     }
 }
 
