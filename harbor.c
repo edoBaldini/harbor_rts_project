@@ -70,6 +70,35 @@ int aux_thread = 0;
 int request_access[MAX_SHIPS];
 bool reply_access[MAX_SHIPS];
 
+void * user_task(void * arg)
+{   
+char scan = 0;
+// Task private variables
+const int id = get_task_index(arg);
+	set_activation(id);
+
+	while (!end) 
+	{   
+		/*if (keypressed()) scan = readkey() >> 8;
+		if (scan == KEY_ENTER){
+			//printf("try to create new ship\n");
+			init_ship();
+		}
+
+		if (scan == KEY_ESC)
+			end = true;
+
+		terminate();*/
+	
+		if (deadline_miss(id))
+		{   
+			printf("%d) deadline missed! radar\n", id);
+		}
+		wait_for_activation(id);
+	}
+
+return NULL;
+}
 
 void * radar_task(void * arg)
 {   
@@ -348,7 +377,7 @@ const int id = get_task_index(arg);
 
 		if (request_access[i] == -1 && check_yposition(i, Y_PORT) && !reply_access[i])
 		{
-			printf("ship %d frees place\n", i);
+			printf("ship %d frees\n", i);
 			reply_access[i] = true;
 			free_trace(i);
 			access_place = true;
@@ -453,6 +482,8 @@ void init(void)
 	aux_thread ++;
 	task_create(controller_task, PERIOD, DLINE, PRIO);
 	aux_thread ++;
+	task_create(user_task, PERIOD, DLINE, PRIO);
+	aux_thread ++;
 
 }
 
@@ -489,7 +520,6 @@ int main()
 {
 char scan;
 int i;
-int j;
 int ships_terminated[MAX_SHIPS] = {false};
 
 	if (MAX_SHIPS + aux_thread > MAX_THREADS)
@@ -516,6 +546,12 @@ int ships_terminated[MAX_SHIPS] = {false};
 	end = true;
 
 	terminate(ships_terminated);
+	
+	for (i = 0; i < aux_thread; ++i)
+	{
+		join_spec_thread(i);
+	}
+	
 	return 0;
 }
 

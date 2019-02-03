@@ -71,7 +71,7 @@ void init(void);
 void init_ship();
 void fill_places();
 void mark_label(BITMAP * boat);
-void terminate(int ships_terminated[]);
+void terminate();
 int random_in_range(int min_x, int max_x);
 pair make_pair(int x, int y);
 
