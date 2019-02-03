@@ -47,15 +47,18 @@ float degree_fix(float grade);
 //	SHIP FUNCTIONS
 //------------------------------------------------------------------------------
 void reverse_array(pair trace[], int last_index);
-int make_array_trace(BITMAP * t, pair trace[], int id, 
-																	bool odd);
+int make_array_trace(BITMAP * t, pair trace[], int id, bool odd);
 bool check_forward(int id);
 bool check_spec_position(int id, float x, float y);
 bool check_yposition(int id, int y);
-void follow_track_frw(int id, int i, pair mytrace[],
-																int last_index);
+void follow_track_frw(int id, int i, pair mytrace[], int last_index);
 void rotate90_ship(int id, int y1, int y2);
 bool exit_ship(int id);
+
+//------------------------------------------------------------------------------
+//	USER FUNCTIONS
+//------------------------------------------------------------------------------
+int click_place(int offset, int delta, int l_x, int r_x);
 
 //------------------------------------------------------------------------------
 //	CONTROLLER FUNCTIONS
