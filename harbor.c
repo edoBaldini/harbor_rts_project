@@ -25,7 +25,8 @@
 //------------------------------------------------------------------------------
 #define XSHIP			18			// width dimension of the ship  
 #define YSHIP			54			// height dimension of the ship
-#define P_TIME			2000		// ship parking time, in ms
+#define MIN_P_TIME		2000		// min ship parking time, in ms
+#define	MAX_P_TIME		20000		// max ship parking time, in s
 
 //-----------------------------------------------------------------------------
 // GLOBAL CONSTANTS related to the radar
@@ -215,7 +216,7 @@ const int id = get_task_index(arg);
 				if (!wait)
 				{
 					clock_gettime(CLOCK_MONOTONIC, &dt);
-					time_add_ms(&dt, P_TIME);
+					time_add_ms(&dt, random_in_range(MIN_P_TIME, MAX_P_TIME));
 					wait = true;
 				}
 				else
@@ -302,7 +303,7 @@ const int id = get_task_index(arg);
 		{
 			if (access_port)
 			{
-				printf("nave %d entra al porto\n", i);
+				printf("ship %d enters to the port\n", i);
 				routes[i].x = X_PORT;
 				routes[i].y = Y_PORT;
 				reply_access[i] = true;
@@ -319,7 +320,7 @@ const int id = get_task_index(arg);
 
 				if (enter_trace[i])
 				{
-					printf("nave %d assegnato POSTO\n", i);
+					printf("ship %d PLACE assigned\n", i);
 					reply_access[i] = true;
 					access_place = false;
 					access_port = true;
@@ -339,7 +340,7 @@ const int id = get_task_index(arg);
 			exit_trace[i] = assign_exit(i);
 			if (exit_trace[i])
 			{
-				printf("nave %d in uscita\n", i);
+				printf("ship %d exiting\n", i);
 				reply_access[i] = true;
 				access_place = false;
 			}
@@ -347,7 +348,7 @@ const int id = get_task_index(arg);
 
 		if (request_access[i] == -1 && check_yposition(i, Y_PORT) && !reply_access[i])
 		{
-			printf("nave %d libera il posto\n", i);
+			printf("ship %d frees place\n", i);
 			reply_access[i] = true;
 			free_trace(i);
 			access_place = true;
@@ -472,7 +473,7 @@ enter_trace[2] = load_bitmap("e3.bmp", NULL);
 		fleet[ships_activated].boat = load_bitmap("ship_c.bmp", NULL);
 		mark_label(fleet[ships_activated].boat);
 		fleet[ships_activated].x = 0.0; //((ships_activated * 144) % 864) + 54;
-		fleet[ships_activated].y = 0.0; random_in_range(PORT_BMP_H, YWIN);
+		fleet[ships_activated].y = 0.0; //random_in_range(PORT_BMP_H, YWIN);
 		fleet[ships_activated].active = true;
 		routes[ships_activated].x = X_PORT;
 		routes[ships_activated].y = YGUARD_POS;
