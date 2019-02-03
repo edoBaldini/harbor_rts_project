@@ -71,15 +71,10 @@ int request_access[MAX_SHIPS];
 bool reply_access[MAX_SHIPS];
 
 
-int click_place()
+int click_place(int offset, int delta, int l_x, int r_x)
 {
 int i, space;
 int half_num_parking = 4;
-int delta = 28;
-int offset = 19;
-int l_x = 121;
-int r_x = PORT_BMP_W - l_x - delta - (half_num_parking - 1) * (offset + delta);
-
 
 	if (mouse_y <= Y_PLACE && mouse_y >= Y_PLACE - YSHIP)
 	{
@@ -93,13 +88,21 @@ int r_x = PORT_BMP_W - l_x - delta - (half_num_parking - 1) * (offset + delta);
 					return i + half_num_parking;
 
 		}
-		return -1;\
+		return -1;
 	}
 	else return -1;
 }
+
 void * user_task(void * arg)
 {   
-int index_place;
+int pos = -1;
+int i, j;
+int ship_index = -1;
+int half_num_parking = 4;
+int delta = 28;
+int offset = 19;
+int l_x = 121;
+int r_x = PORT_BMP_W - l_x - delta - (half_num_parking - 1) * (offset + delta);
 // Task private variables
 const int id = get_task_index(arg);
 	set_activation(id);
@@ -108,9 +111,19 @@ const int id = get_task_index(arg);
 	{   
 		if (mouse_b && 1)
 		{
-			index_place = click_place();
-			if (index_place>= 0)
-				printf("printf i %d\n",index_place);
+			pos = click_place(offset, delta, l_x, r_x);
+
+			if (pos>= 0)
+			{
+				ship_index = places[pos].ship_id;
+				if (ship_index >= 0 && fleet[ship_index].parking == true)
+				{
+					fleet[ship_index].parking = false;
+					printf("waken up\n");
+				}
+				else printf("is not parked\n");
+			}
+
 		}
 
 		if (deadline_miss(id))
@@ -193,7 +206,6 @@ bool termination = false;
 	// Task private variables
 const int id = get_task_index(arg);
 	set_activation(id);
-	printf(" id task %d\n", id);
 	ship_id 			= id - aux_thread;
 	first_step			= true;
 	second_step 		= false;
@@ -267,6 +279,7 @@ const int id = get_task_index(arg);
 
 				if (!wait)
 				{
+					fleet[ship_id].parking = true;
 					clock_gettime(CLOCK_MONOTONIC, &dt);
 					time_add_ms(&dt, random_in_range(MIN_P_TIME, MAX_P_TIME));
 					wait = true;
@@ -274,8 +287,9 @@ const int id = get_task_index(arg);
 				else
 				{
 					clock_gettime(CLOCK_MONOTONIC, &now);
-					if (time_cmp(now, dt) >= 0)
+					if (time_cmp(now, dt) >= 0 || !fleet[ship_id].parking)
 					{
+						fleet[ship_id].parking = false;
 						reply_access[ship_id] = false;
 						request_access[ship_id] = Y_EXIT;
 						mytrace_computed = false;
@@ -381,7 +395,7 @@ const int id = get_task_index(arg);
 			}
 		}
 
-		if (check_yposition(ship, Y_EXIT))
+		if (check_yposition(ship, Y_PLACE))
 		{
 			access_place = true;
 			ship = -1;
@@ -509,7 +523,7 @@ void init(void)
 	aux_thread ++;
 	task_create(controller_task, PERIOD, DLINE, PRIO);
 	aux_thread ++;
-	task_create(user_task, 3, 6, PRIO);
+	task_create(user_task, PERIOD, DLINE, PRIO);
 	aux_thread ++;
 
 }
@@ -529,6 +543,7 @@ enter_trace[2] = load_bitmap("e3.bmp", NULL);
 		//printf("hi new ship n* %d\n", ships_activated);
 		fleet[ships_activated].boat = create_bitmap(XSHIP, YSHIP);
 		fleet[ships_activated].boat = load_bitmap("ship_c.bmp", NULL);
+		fleet[ships_activated].parking = false;
 		mark_label(fleet[ships_activated].boat);
 		fleet[ships_activated].x = 0.0; //((ships_activated * 144) % 864) + 54;
 		fleet[ships_activated].y = 0.0; //random_in_range(PORT_BMP_H, YWIN);
@@ -773,7 +788,7 @@ bool assign_trace(int ship)
 		{	
 			routes[ship].trace = places[i].enter_trace;
 			routes[ship].y = Y_PLACE - YSHIP;
-			routes[ship].odd = ( i % 2 != 0);
+			routes[ship].odd = ( i < 4);
 			places[i].available = false;
 			places[i].ship_id = ship;
 			return true;
@@ -822,28 +837,52 @@ for (j = 0; j < 8; ++j)
 	places[j].ship_id = -1;
 	places[j].available = false;
 }
-places[0].enter_trace = load_bitmap("w1.bmp", NULL);
-places[0].exit_trace = load_bitmap("x1.bmp", NULL);
-places[0].available = true;
+places[7].enter_trace = load_bitmap("w1.bmp", NULL);
+places[7].exit_trace = load_bitmap("x1.bmp", NULL);
+places[7].available = true;
 
-places[2].enter_trace = load_bitmap("w2.bmp", NULL);
-places[2].exit_trace = load_bitmap("x2.bmp", NULL);
-places[2].available = true;
+places[6].enter_trace = load_bitmap("w2.bmp", NULL);
+places[6].exit_trace = load_bitmap("x2.bmp", NULL);
+places[6].available = true;
+
+places[0].enter_trace = create_bitmap(PORT_BMP_W, PORT_BMP_H);
+clear_to_color(places[0].enter_trace, makecol(255,0,255));
+draw_sprite_h_flip(places[0].enter_trace, places[7].enter_trace,0,0);
+places[0].exit_trace = create_bitmap(PORT_BMP_W, PORT_BMP_H);
+clear_to_color(places[0].exit_trace, makecol(255,0,255));
+draw_sprite_h_flip(places[0].exit_trace, places[7].exit_trace,0,0);
+places[0].available = true;
 
 places[1].enter_trace = create_bitmap(PORT_BMP_W, PORT_BMP_H);
 clear_to_color(places[1].enter_trace, makecol(255,0,255));
-draw_sprite_h_flip(places[1].enter_trace, places[0].enter_trace,0,0);
+draw_sprite_h_flip(places[1].enter_trace, places[6].enter_trace,0,0);
 places[1].exit_trace = create_bitmap(PORT_BMP_W, PORT_BMP_H);
 clear_to_color(places[1].exit_trace, makecol(255,0,255));
-draw_sprite_h_flip(places[1].exit_trace, places[0].exit_trace,0,0);
+draw_sprite_h_flip(places[1].exit_trace, places[6].exit_trace,0,0);
 places[1].available = true;
+
+places[5].enter_trace = load_bitmap("w3.bmp", NULL);
+places[5].exit_trace = load_bitmap("x3.bmp", NULL);
+places[5].available = true;
+
+places[4].enter_trace = load_bitmap("w4.bmp", NULL);
+places[4].exit_trace = load_bitmap("x4.bmp", NULL);
+places[4].available = true;
+
+places[2].enter_trace = create_bitmap(PORT_BMP_W, PORT_BMP_H);
+clear_to_color(places[2].enter_trace, makecol(255,0,255));
+draw_sprite_h_flip(places[2].enter_trace, places[5].enter_trace,0,0);
+places[2].exit_trace = create_bitmap(PORT_BMP_W, PORT_BMP_H);
+clear_to_color(places[2].exit_trace, makecol(255,0,255));
+draw_sprite_h_flip(places[2].exit_trace, places[5].exit_trace,0,0);
+places[2].available = true;
 
 places[3].enter_trace = create_bitmap(PORT_BMP_W, PORT_BMP_H);
 clear_to_color(places[3].enter_trace, makecol(255,0,255));
-draw_sprite_h_flip(places[3].enter_trace, places[2].enter_trace,0,0);
+draw_sprite_h_flip(places[3].enter_trace, places[4].enter_trace,0,0);
 places[3].exit_trace = create_bitmap(PORT_BMP_W, PORT_BMP_H);
 clear_to_color(places[3].exit_trace, makecol(255,0,255));
-draw_sprite_h_flip(places[3].exit_trace, places[2].exit_trace,0,0);
+draw_sprite_h_flip(places[3].exit_trace, places[4].exit_trace,0,0);
 places[3].available = true;
 }
 
@@ -865,7 +904,7 @@ int i, j;
 		{
 			j = join_spec_thread(i + aux_thread);
 			ships_terminated[i] = true;
-			printf("joined i %d status %d\n", i + aux_thread, j);
+			//printf("joined i %d status %d\n", i + aux_thread, j);
 		}
 	}
 
