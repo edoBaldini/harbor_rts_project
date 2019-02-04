@@ -132,10 +132,8 @@ const int id = get_task_index(arg);
 		}
 
 		if (scan == KEY_ENTER){
-			printf("try to create new ship\n");
 			init_ship();
 		}
-			//terminate(ships_terminated);
 
 		if (scan == KEY_ESC)
 		{
@@ -220,6 +218,7 @@ bool first_step, second_step, third_step, fourth_step;
 bool move = true;
 bool wait = false;
 bool termination = false;
+float x_cur, y_cur, g_cur;
 	// Task private variables
 const int id = get_task_index(arg);
 	set_activation(id);
@@ -233,11 +232,14 @@ const int id = get_task_index(arg);
 
 	while (!end && !termination) 
 	{
-		
-		move = (check_forward(ship_id)) ? false: true;
+		x_cur = fleet[ship_id].x;
+		y_cur = fleet[ship_id].y;
+		g_cur = fleet[ship_id].traj_grade;
+
+		move = (check_forward(x_cur, y_cur, g_cur)) ? false: true;
+
 		if (first_step)
 		{	
-
 			if (!mytrace_computed)
 			{
 				last_index = make_array_trace(routes[ship_id].trace, mytrace, 
@@ -246,7 +248,7 @@ const int id = get_task_index(arg);
 				i = 0;
 			}
 
-			if(check_yposition(ship_id, YGUARD_POS))
+			if(check_yposition(y_cur, YGUARD_POS))
 			{
 				request_access[ship_id] = Y_PORT;
 				second_step = true;
@@ -263,7 +265,7 @@ const int id = get_task_index(arg);
 
 		if (second_step && reply_access[ship_id])
 		{
-			if(check_yposition(ship_id, Y_PORT))
+			if(check_yposition(y_cur, Y_PORT))
 			{
 				reply_access[ship_id] = false;
 				request_access[ship_id] = Y_PLACE;
@@ -291,7 +293,7 @@ const int id = get_task_index(arg);
 				i = 0;
 			}
 
-			if(check_yposition(ship_id, Y_PLACE - YSHIP))
+			if(check_yposition(y_cur, Y_PLACE - YSHIP))
 			{
 
 				if (!wait)
@@ -342,7 +344,7 @@ const int id = get_task_index(arg);
 				i++;
 			}
 
-			if (check_yposition(ship_id, Y_PORT - XSHIP) && 
+			if (check_yposition(y_cur, Y_PORT - XSHIP) && 
 												request_access[ship_id] != -1)
 			{
 				reply_access[ship_id] = false;
@@ -382,7 +384,6 @@ const int id = get_task_index(arg);
 
 	while (!end) 
 	{
-
 		if (request_access[i] == Y_PORT)
 		{
 			if (access_port)
@@ -413,7 +414,7 @@ const int id = get_task_index(arg);
 			}
 		}
 
-		if (check_yposition(ship, Y_PLACE))
+		if (check_yposition(fleet[ship].y, Y_PLACE))
 		{
 			access_place = true;
 			ship = -1;
@@ -430,7 +431,7 @@ const int id = get_task_index(arg);
 			}
 		}
 
-		if (request_access[i] == -1 && check_yposition(i, Y_PORT - XSHIP) &&
+		if (request_access[i] == -1 && check_yposition(fleet[i].y, Y_PORT - XSHIP) &&
 															!reply_access[i])
 		{
 			printf("ship %d frees\n", i);
@@ -684,19 +685,19 @@ for (j = PORT_BMP_H; j > 0; --j)
 	if (request_access[id] == Y_EXIT)
 		reverse_array(trace, last_index);
 
-	routes[id].x = trace[last_index].x;
+	//routes[id].x = trace[last_index].x;
 	return last_index;
 }
 
-bool check_forward(int id)
+bool check_forward(float x_cur, float y_cur, float g_cur)
 {
 int x, y, j;
 int color;
 
 	for (j = 2; j < 70; ++j )
 	{
-		x = fleet[id].x + j * cos(fleet[id].traj_grade);
-		y = fleet[id].y + j * sin(fleet[id].traj_grade);
+		x = x_cur + j * cos(g_cur);
+		y = y_cur + j * sin(g_cur);
 		color = getpixel(sea, x, y);
 
 		if (color != sea_color && color != -1)
@@ -706,15 +707,9 @@ int color;
  	return false;
 }
 
-bool check_spec_position(int id, float x, float y)
+bool check_yposition(float y_ship, int y)
 {
-	return fabs(fleet[id].x - x) <= EPSILON &&
-			fabs(fleet[id].y - y) <= EPSILON;
-}
-
-bool check_yposition(int id, int y)
-{
-	return fabs(fleet[id].y - y) <= EPSILON;
+	return fabs(y_ship - y) <= EPSILON;
 }
 
 void follow_track_frw(int id, int i, pair mytrace[X_PORT * Y_PORT], 
@@ -801,7 +796,7 @@ bool try_access_port()
 int j;
 	for (j = 0; j < ships_activated; ++j)
 		{
-			if (check_yposition(j, YGUARD_POS))
+			if (check_yposition(fleet[j].y, YGUARD_POS))
 			{
 				routes[j].y = Y_PORT;
 				routes[j].x = X_PORT;
@@ -815,8 +810,7 @@ int j;
 bool assign_trace(int ship)
  {
  int i = random_in_range(0, PLACE_NUMBER -1);
-	//for (i = 0; i < PLACE_NUMBER; i++)
-	//{
+
 		if (places[i].available)
 		{	
 			routes[ship].trace = places[i].enter_trace;
@@ -827,7 +821,6 @@ bool assign_trace(int ship)
 			return true;
 		}
 
-	//} 
 	return false;
 }
 

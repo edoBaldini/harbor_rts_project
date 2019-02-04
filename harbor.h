@@ -49,9 +49,8 @@ float degree_fix(float grade);
 //------------------------------------------------------------------------------
 void reverse_array(pair trace[], int last_index);
 int make_array_trace(BITMAP * t, pair trace[], int id, bool odd);
-bool check_forward(int id);
-bool check_spec_position(int id, float x, float y);
-bool check_yposition(int id, int y);
+bool check_forward(float x_cur, float y_cur, float g_cur);
+bool check_yposition(float y_ship, int y);
 void follow_track_frw(int id, int i, pair mytrace[], int last_index);
 void rotate90_ship(int id, int y1, int y2);
 bool exit_ship(int id);
