@@ -13,6 +13,7 @@
 #define FPS				200.0		
 #define FRAME_PERIOD	(1 / FPS)
 #define EPSILON			3.f			// guardian distance to the goal
+#define	PLACE_NUMBER	8			// number of parking
 
 //------------------------------------------------------------------------------
 //	FOR BOOLEAN DEFINITION
@@ -25,8 +26,8 @@
 //------------------------------------------------------------------------------
 #define XSHIP			18			// width dimension of the ship  
 #define YSHIP			54			// height dimension of the ship
-#define MIN_P_TIME		2000		// min ship parking time, in ms
-#define	MAX_P_TIME		20000		// max ship parking time, in s
+#define MIN_P_TIME		1000		// min ship parking time, in ms
+#define	MAX_P_TIME		50000		// max ship parking time, in s
 
 //-----------------------------------------------------------------------------
 // GLOBAL CONSTANTS related to the radar
@@ -56,7 +57,7 @@
 //------------------------------------------------------------------------------
 // GLOBAL VARIABLES
 //------------------------------------------------------------------------------
-struct place places[8];
+struct place places[PLACE_NUMBER];
 struct ship fleet[MAX_SHIPS];
 struct route routes[MAX_SHIPS];
 
@@ -77,7 +78,7 @@ void * user_task(void * arg)
 int pos = -1;
 int i, j;
 int ship_index = -1;
-int half_num_parking = 4;
+int half_num_parking = PLACE_NUMBER / 2;
 int delta = 28;
 int offset = 19;
 int l_x = 121;
@@ -87,8 +88,8 @@ const int id = get_task_index(arg);
 	set_activation(id);
 
 	while (!end) 
-	{   
-		if (mouse_b && 1)
+	{
+		if (mouse_b == 1)
 		{
 			pos = click_place(offset, delta, l_x, r_x);
 
@@ -98,7 +99,24 @@ const int id = get_task_index(arg);
 				if (ship_index >= 0 && fleet[ship_index].parking == true)
 				{
 					fleet[ship_index].parking = false;
-					printf("ship %d woke up\n". ship_index);
+					printf("ship %d woke up\n", ship_index);
+				}
+			}
+
+		}
+
+		if (mouse_b == 2)
+		{
+			pos = click_place(offset, delta, l_x, r_x);
+
+			if (pos>= 0)
+			{
+				ship_index = places[pos].ship_id;
+				if (ship_index >= 0 && fleet[ship_index].parking == true)
+				{
+					time_add_ms(&fleet[ship_index].p_time, 20);
+					printf("ship %d more 20ms, actual time %ld\n", ship_index, 
+											(fleet[ship_index].p_time).tv_sec);
 				}
 			}
 
@@ -258,14 +276,14 @@ const int id = get_task_index(arg);
 				if (!wait)
 				{
 					fleet[ship_id].parking = true;
-					clock_gettime(CLOCK_MONOTONIC, &dt);
-					time_add_ms(&dt, random_in_range(MIN_P_TIME, MAX_P_TIME));
+					clock_gettime(CLOCK_MONOTONIC, &fleet[ship_id].p_time);
+					time_add_ms(&fleet[ship_id].p_time, random_in_range(MIN_P_TIME, MAX_P_TIME));
 					wait = true;
 				}
 				else
 				{
 					clock_gettime(CLOCK_MONOTONIC, &now);
-					if (time_cmp(now, dt) >= 0 || !fleet[ship_id].parking)
+					if (time_cmp(now, fleet[ship_id].p_time) >= 0 || !fleet[ship_id].parking)
 					{
 						fleet[ship_id].parking = false;
 						reply_access[ship_id] = false;
@@ -277,7 +295,7 @@ const int id = get_task_index(arg);
 				}
 			}
 
-			else
+			else if(move)
 			{
 				follow_track_frw(ship_id, i, mytrace, last_index);
 				i++;
@@ -295,15 +313,15 @@ const int id = get_task_index(arg);
 				i = 0;
 			}
 			if (fleet[ship_id].y < mytrace[0].y)
-				rotate90_ship(ship_id, Y_PLACE, Y_EXIT + YSHIP);
+				rotate90_ship(ship_id, Y_PLACE, mytrace[0].y + YSHIP);
 
-			else if(move)
+			else
 			{
 				follow_track_frw(ship_id, i, mytrace, last_index);
 				i++;
 			}
 
-			if (check_yposition(ship_id, Y_PORT) && 
+			if (check_yposition(ship_id, Y_PORT - XSHIP) && 
 												request_access[ship_id] != -1)
 			{
 				reply_access[ship_id] = false;
@@ -391,7 +409,7 @@ const int id = get_task_index(arg);
 			}
 		}
 
-		if (request_access[i] == -1 && check_yposition(i, Y_PORT) && 
+		if (request_access[i] == -1 && check_yposition(i, Y_PORT - XSHIP) &&
 															!reply_access[i])
 		{
 			printf("ship %d frees\n", i);
@@ -455,7 +473,9 @@ int i;
 //	USEFUL TO VISUALIZE CHECK_FWD()
 		/*for (int k = 0; k < ships_activated; ++k)
 			for (int j = 2; j < 70; j++)
-				putpixel(back_sea_bmp, fleet[k].x + j * cos(fleet[k].traj_grade), fleet[k].y + j * sin(fleet[k].traj_grade), 0);*/
+			{
+				putpixel(back_sea_bmp, fleet[k].x + j * cos(fleet[k].traj_grade), fleet[k].y + j * sin(fleet[k].traj_grade), 0);
+			}*/
 
 		putpixel(back_sea_bmp, X_PORT, Y_PORT, makecol(255,0,255));
 		blit(back_sea_bmp, screen, 0,0,0,0,back_sea_bmp->w, back_sea_bmp->h); 
@@ -473,7 +493,7 @@ int i;
 		destroy_bitmap(fleet[i].boat);
 		
 
-	for (i = 0; i < 8; ++i)
+	for (i = 0; i < PLACE_NUMBER; ++i)
 	{
 		destroy_bitmap(places[i].enter_trace);
 		destroy_bitmap(places[i].exit_trace);
@@ -750,7 +770,7 @@ float aux = 1000 / PERIOD;
 int click_place(int offset, int delta, int l_x, int r_x)
 {
 int i, space;
-int half_num_parking = 4;
+int half_num_parking = PLACE_NUMBER / 2;
 
 	if (mouse_y <= Y_PLACE && mouse_y >= Y_PLACE - YSHIP)
 	{
@@ -790,27 +810,27 @@ int j;
 
 bool assign_trace(int ship)
  {
- int i;
-	for (i = 0; i < 8; i++)
-	{
+ int i = random_in_range(0, PLACE_NUMBER -1);
+	//for (i = 0; i < PLACE_NUMBER; i++)
+	//{
 		if (places[i].available)
 		{	
 			routes[ship].trace = places[i].enter_trace;
 			routes[ship].y = Y_PLACE - YSHIP;
-			routes[ship].odd = ( i < 4);
+			routes[ship].odd = (i < 4);
 			places[i].available = false;
 			places[i].ship_id = ship;
 			return true;
 		}
 
-	} 
+	//} 
 	return false;
 }
 
 bool assign_exit(int ship)
 {
 int i;
-	for(i = 0; i < 8; i++)
+	for(i = 0; i < PLACE_NUMBER; i++)
 	{
 		if (places[i].ship_id == ship)
 		{
@@ -825,7 +845,7 @@ int i;
 void free_trace(int ship)
 {
 int i;
-	for (i = 0; i < 8; i++)
+	for (i = 0; i < PLACE_NUMBER; i++)
 	{
 		if (places[i].ship_id == ship)
 		{
@@ -841,7 +861,7 @@ int i;
 void fill_places()
 {
 int i, j;
-	for (j = 0; j < 8; ++j)
+	for (j = 0; j < PLACE_NUMBER; ++j)
 	{
 		places[j].ship_id = -1;
 		places[j].available = true;

@@ -12,6 +12,7 @@ typedef struct ship
 	float x, y;
 	float traj_grade; 
 	BITMAP * boat;
+	struct timespec p_time;
 	bool parking;
 	bool active;
 }ship;
