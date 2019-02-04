@@ -75,6 +75,7 @@ bool reply_access[MAX_SHIPS];
 
 void * user_task(void * arg)
 {   
+char scan;
 int pos = -1;
 int i, j;
 int ship_index = -1;
@@ -83,6 +84,8 @@ int delta = 28;
 int offset = 19;
 int l_x = 121;
 int r_x = PORT_BMP_W - l_x - delta - (half_num_parking - 1) * (offset + delta);
+int ships_terminated[MAX_SHIPS] = {false};
+
 // Task private variables
 const int id = get_task_index(arg);
 	set_activation(id);
@@ -122,6 +125,24 @@ const int id = get_task_index(arg);
 
 		}
 
+		scan = 0;
+		if (keypressed()) 
+		{
+			scan = readkey() >> 8;
+		}
+
+		if (scan == KEY_ENTER){
+			printf("try to create new ship\n");
+			init_ship();
+		}
+			//terminate(ships_terminated);
+
+		if (scan == KEY_ESC)
+		{
+			end = true;
+		}
+
+		terminate(ships_terminated);
 		if (deadline_miss(id))
 		{   
 			printf("%d) deadline missed! radar\n", id);
@@ -561,9 +582,7 @@ enter_trace[2] = load_bitmap("e3.bmp", NULL);
 
 int main()
 {
-char scan;
 int i;
-int ships_terminated[MAX_SHIPS] = {false};
 
 	if (MAX_SHIPS + aux_thread > MAX_THREADS)
 	{
@@ -573,26 +592,11 @@ int ships_terminated[MAX_SHIPS] = {false};
 	}
 
 	init();
-
-	do {
-		scan = 0;
-		if (keypressed()) scan = readkey() >> 8;
-		if (scan == KEY_ENTER){
-			//printf("try to create new ship\n");
-			init_ship();
-			i++;
-		}
-			terminate(ships_terminated);
-
-	} while (scan != KEY_ESC);
-
-	end = true;
-
-	terminate(ships_terminated);
 	
 	for (i = 0; i < aux_thread; ++i)
 	{
 		join_spec_thread(i);
+
 	}
 	
 	allegro_exit();
@@ -910,7 +914,7 @@ int i, j;
 		{
 			j = join_spec_thread(i + aux_thread);
 			ships_terminated[i] = true;
-			//printf("joined i %d status %d\n", i + aux_thread, j);
+			printf("joined i %d status %d\n", i + aux_thread, j);
 		}
 	}
 
