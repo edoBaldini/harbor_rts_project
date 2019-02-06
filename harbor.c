@@ -210,11 +210,13 @@ void * ship_task(void * arg)
 int i;
 int ship_id;
 int last_index;
+int cur_req;
 pair mytrace[X_PORT * Y_PORT];
 struct timespec dt;
 struct timespec now;
 bool mytrace_computed;
 bool first_step, second_step, third_step, fourth_step;
+bool cur_repl;
 bool move = true;
 bool wait = false;
 bool termination = false;
@@ -236,6 +238,9 @@ const int id = get_task_index(arg);
 		y_cur = fleet[ship_id].y;
 		g_cur = fleet[ship_id].traj_grade;
 
+		cur_repl = reply_access[ship_id];
+		cur_req = request_access[ship_id];
+
 		move = (check_forward(x_cur, y_cur, g_cur)) ? false: true;
 
 		if (first_step)
@@ -250,7 +255,7 @@ const int id = get_task_index(arg);
 
 			if(check_yposition(y_cur, YGUARD_POS))
 			{
-				request_access[ship_id] = Y_PORT;
+				cur_req = Y_PORT;
 				second_step = true;
 				first_step = false;
 			}
@@ -263,12 +268,12 @@ const int id = get_task_index(arg);
 
 		}
 
-		if (second_step && reply_access[ship_id])
+		if (second_step && cur_repl)
 		{
 			if(check_yposition(y_cur, Y_PORT))
 			{
-				reply_access[ship_id] = false;
-				request_access[ship_id] = Y_PLACE;
+				cur_repl = false;
+				cur_req = Y_PLACE;
 				i = 0;
 				mytrace_computed = false;
 				third_step = true;
@@ -283,7 +288,7 @@ const int id = get_task_index(arg);
 
 		}
 
-		if (third_step && reply_access[ship_id])
+		if (third_step && cur_repl)
 		{
 			if (!mytrace_computed)
 			{
@@ -297,8 +302,7 @@ const int id = get_task_index(arg);
 			{
 
 				if (!wait)
-				{	
-					request_access[ship_id] = 0;
+				{
 					fleet[ship_id].parking = true;
 					clock_gettime(CLOCK_MONOTONIC, &fleet[ship_id].p_time);
 					time_add_ms(&fleet[ship_id].p_time, random_in_range(MIN_P_TIME, MAX_P_TIME));
@@ -310,8 +314,8 @@ const int id = get_task_index(arg);
 					if (time_cmp(now, fleet[ship_id].p_time) >= 0 || !fleet[ship_id].parking)
 					{
 						fleet[ship_id].parking = false;
-						reply_access[ship_id] = false;
-						request_access[ship_id] = Y_EXIT;
+						cur_repl = false;
+						cur_req = Y_EXIT;
 						mytrace_computed = false;
 						third_step = false;
 						fourth_step = true;
@@ -327,7 +331,7 @@ const int id = get_task_index(arg);
 
 		}
 
-		if (fourth_step && reply_access[ship_id])
+		if (fourth_step && cur_repl)
 		{
 			if (!mytrace_computed)
 			{
@@ -346,19 +350,22 @@ const int id = get_task_index(arg);
 			}
 
 			if (check_yposition(y_cur, Y_PORT - XSHIP) && 
-												request_access[ship_id] != -1)
+												cur_req != -1)
 			{
-				reply_access[ship_id] = false;
-				request_access[ship_id] = -1;
+				cur_repl = false;
+				cur_req = -1;
 			}
 
-			if (request_access[ship_id] == -1 && reply_access[ship_id])
+			if (cur_req == -1 && cur_repl)
 			{
 				termination = exit_ship(ship_id);
 				if (termination)
 					fleet[ship_id].active = false;
 			}
 		}
+
+		reply_access[ship_id] = cur_repl;
+		request_access[ship_id] = cur_req;
 
 		if (deadline_miss(id))
 		{   
@@ -373,33 +380,36 @@ const int id = get_task_index(arg);
 void * controller_task(void *arg)
 {
 int ship;
-int ships_exits;
 int i = 0;
+int cur_req;
 bool access_port = true;
 bool access_place = true;
 bool enter_trace[MAX_SHIPS] = {false};
 bool exit_trace[MAX_SHIPS] = {false};
-
-
+bool cur_repl;
 const int id = get_task_index(arg);
 	set_activation(id);
 
 	while (!end) 
 	{
-		if (request_access[i] == Y_PORT)
+
+		cur_repl = reply_access[i];
+		cur_req = request_access[i];
+
+		if (cur_req == Y_PORT)
 		{
 			if (access_port)
 			{
 				printf("ship %d enters to the port\n", i);
 				routes[i].x = X_PORT;
 				routes[i].y = Y_PORT;
-				reply_access[i] = true;
+				cur_repl = true;
 				access_port = false;
 
 			}
 		}
 
-		if (request_access[i] == Y_PLACE)
+		if (cur_req == Y_PLACE)
 		{
 			if (access_place && !enter_trace[i])
 			{	
@@ -408,7 +418,7 @@ const int id = get_task_index(arg);
 				if (enter_trace[i])
 				{
 					printf("ship %d PLACE assigned\n", i);
-					reply_access[i] = true;
+					cur_repl = true;
 					access_place = false;
 					access_port = true;
 					ship = i;
@@ -416,32 +426,34 @@ const int id = get_task_index(arg);
 			}
 		}
 
-		if (request_access[ship] == 0 && enter_trace[ship])
-		{	
-			enter_trace[ship] = false;
+		if (check_yposition(fleet[ship].y, Y_PLACE))
+		{
 			access_place = true;
 			ship = -1;
 		}
 
-		if (request_access[i] == Y_EXIT && access_place && !exit_trace[i])
+		if (cur_req == Y_EXIT && access_place && !exit_trace[i])
 		{ 
 			exit_trace[i] = assign_exit(i);
 			if (exit_trace[i])
 			{
 				printf("ship %d exiting\n", i);
-				reply_access[i] = true;
+				cur_repl = true;
 				access_place = false;
 			}
 		}
-		//printf("access port %d access place %d\n", access_port, access_place);
 
-		if (request_access[i] == -1 && !reply_access[i])
+		if (cur_req == -1 && check_yposition(fleet[i].y, Y_PORT - XSHIP) &&
+															!cur_repl)
 		{
 			printf("ship %d frees\n", i);
-			reply_access[i] = true;
+			cur_repl = true;
 			free_trace(i);
 			access_place = true;
 		}
+
+		reply_access[i] = cur_repl;
+		request_access[i] = cur_req;
 
 		i = (i < ships_activated) ? i + 1 : 0;
 
