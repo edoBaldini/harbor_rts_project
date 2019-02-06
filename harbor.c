@@ -9,7 +9,7 @@
 #define DLINE			15			// in ms
 #define PRIO			10			// priority level
 #define AUX_THREAD 		4
-#define MAX_THREADS		6			
+#define MAX_THREADS		12			
 #define MAX_SHIPS		MAX_THREADS - AUX_THREAD			// max number of ship MUST BE LOWER THAN 30
 #define FPS				200.0		
 #define FRAME_PERIOD	(1 / FPS)
@@ -297,7 +297,7 @@ const int id = get_task_index(arg);
 			{
 
 				if (!wait)
-				{
+				{	
 					request_access[ship_id] = 0;
 					fleet[ship_id].parking = true;
 					clock_gettime(CLOCK_MONOTONIC, &fleet[ship_id].p_time);
@@ -380,6 +380,7 @@ bool access_place = true;
 bool enter_trace[MAX_SHIPS] = {false};
 bool exit_trace[MAX_SHIPS] = {false};
 
+
 const int id = get_task_index(arg);
 	set_activation(id);
 
@@ -415,8 +416,9 @@ const int id = get_task_index(arg);
 			}
 		}
 
-		if (request_access[i] == 0)
-		{
+		if (request_access[ship] == 0 && enter_trace[ship])
+		{	
+			enter_trace[ship] = false;
 			access_place = true;
 			ship = -1;
 		}
@@ -431,6 +433,7 @@ const int id = get_task_index(arg);
 				access_place = false;
 			}
 		}
+		//printf("access port %d access place %d\n", access_port, access_place);
 
 		if (request_access[i] == -1 && !reply_access[i])
 		{
