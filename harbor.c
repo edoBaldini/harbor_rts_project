@@ -8,8 +8,9 @@
 #define PERIOD			10			// in ms
 #define DLINE			15			// in ms
 #define PRIO			10			// priority level
-#define MAX_SHIPS		12			// max number of ship MUST BE LOWER THAN 30
-#define MAX_THREADS		32			
+#define AUX_THREAD 		4
+#define MAX_THREADS		6			
+#define MAX_SHIPS		MAX_THREADS - AUX_THREAD			// max number of ship MUST BE LOWER THAN 30
 #define FPS				200.0		
 #define FRAME_PERIOD	(1 / FPS)
 #define EPSILON			3.f			// guardian distance to the goal
@@ -66,7 +67,6 @@ BITMAP * radar;
 int sea_color;
 int ships_activated = 0;
 bool end = false;
-int aux_thread = 0;
 
 int request_access[MAX_SHIPS];
 bool reply_access[MAX_SHIPS];
@@ -140,7 +140,7 @@ const int id = get_task_index(arg);
 			end = true;
 		}
 
-		terminate(ships_terminated);
+		//terminate(ships_terminated);
 		if (deadline_miss(id))
 		{   
 			printf("%d) deadline missed! radar\n", id);
@@ -222,7 +222,7 @@ float x_cur, y_cur, g_cur;
 	// Task private variables
 const int id = get_task_index(arg);
 	set_activation(id);
-	ship_id 			= id - aux_thread;
+	ship_id 			= id - AUX_THREAD;
 	first_step			= true;
 	second_step 		= false;
 	third_step 			= false;
@@ -230,7 +230,7 @@ const int id = get_task_index(arg);
 	mytrace_computed 	= false;
 	i 					= 0;
 
-	while (!end && !termination) 
+	while (!end && fleet[ship_id].active) 
 	{
 		x_cur = fleet[ship_id].x;
 		y_cur = fleet[ship_id].y;
@@ -480,9 +480,10 @@ int i;
 
 		clear_to_color(sea, sea_color);
 		for (i = 0; i < ships_activated; ++i)
-			pivot_sprite(sea, fleet[i].boat, fleet[i].x, fleet[i].y, 
+			/*pivot_sprite(sea, fleet[i].boat, fleet[i].x, fleet[i].y, 
 									fleet[i].boat-> w / 2, 0, 
-									itofix(degree_fix(fleet[i].traj_grade)+64));
+									itofix(degree_fix(fleet[i].traj_grade)+64));*/
+			rotate_sprite(sea, fleet[i].boat, fleet[i].x - (XSHIP / 2 ), fleet[i].y, itofix(degree_fix(fleet[i].traj_grade)+64));
 
 		blit(sea, back_sea_bmp, 0, 0, 0,0,sea->w, sea->h);
 		draw_sprite(back_sea_bmp, port_bmp, 0, 0);
@@ -541,19 +542,15 @@ void init(void)
 	show_mouse(screen);
 	
 	task_create(display, PERIOD, DLINE, PRIO);
-	aux_thread ++;
 	task_create(radar_task, 3, 6, PRIO);
-	aux_thread ++;
 	task_create(controller_task, PERIOD, DLINE, PRIO);
-	aux_thread ++;
 	task_create(user_task, PERIOD, DLINE, PRIO);
-	aux_thread ++;
 
 }
 
 void init_ship()
 {
-
+int i;
 int index = (ships_activated % 3);
 BITMAP * enter_trace[3];
 
@@ -563,6 +560,7 @@ enter_trace[2] = load_bitmap("e3.bmp", NULL);
 
 	if (ships_activated < MAX_SHIPS)
 	{
+		printf("ships_activated %d\n", ships_activated);
 		//printf("hi new ship n* %d\n", ships_activated);
 		fleet[ships_activated].boat = create_bitmap(XSHIP, YSHIP);
 		fleet[ships_activated].boat = load_bitmap("ship_c.bmp", NULL);
@@ -579,13 +577,32 @@ enter_trace[2] = load_bitmap("e3.bmp", NULL);
 
 		task_create(ship_task, PERIOD, DLINE, PRIO);
 	}
+	else
+	{
+		for (i = 0; i < MAX_SHIPS; ++i)
+		{
+			if (!fleet[i].active)
+			{
+				printf("riassegno %d\n", i);
+				fleet[i].parking = false;
+				fleet[i].x = 0.0;
+				fleet[i].y = 0.0;
+				fleet[i].active = true;
+				routes[i].x = X_PORT;
+				routes[i].y = YGUARD_POS;
+				routes[i].trace = enter_trace[index]; 
+				routes[i].odd = ((i % 3) == 1);
+				break;
+			}
+		}
+	}
 }
 
 int main()
 {
 int i;
 
-	if (MAX_SHIPS + aux_thread > MAX_THREADS)
+	if (MAX_SHIPS + AUX_THREAD > MAX_THREADS)
 	{
 		printf("too many ships! The max number of ships + the auxiliar thread"
 		" must be lower than max number of thread (32)\n");
@@ -594,7 +611,7 @@ int i;
 
 	init();
 	
-	for (i = 0; i < aux_thread; ++i)
+	for (i = 0; i < AUX_THREAD; ++i)
 	{
 		join_spec_thread(i);
 
@@ -722,7 +739,7 @@ void follow_track_frw(int id, int i, pair mytrace[X_PORT * Y_PORT],
 
 		if (last_index > i + 60)
 			fleet[id].traj_grade = degree_rect(fleet[id].x, fleet[id].y, 
-						mytrace[i + 60].x, mytrace[i + 60].y);
+						mytrace[i + 20].x, mytrace[i + 20].y);
 		else 
 			fleet[id].traj_grade = fleet[id].traj_grade;
 	}
@@ -905,9 +922,9 @@ int i, j;
 	{
 		if (!fleet[i].active && !ships_terminated[i])
 		{
-			j = join_spec_thread(i + aux_thread);
+			j = join_spec_thread(i + AUX_THREAD);
 			ships_terminated[i] = true;
-			printf("joined i %d status %d\n", i + aux_thread, j);
+			printf("joined i %d status %d\n", i + AUX_THREAD, j);
 		}
 	}
 
