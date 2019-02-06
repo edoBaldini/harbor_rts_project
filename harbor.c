@@ -298,6 +298,7 @@ const int id = get_task_index(arg);
 
 				if (!wait)
 				{
+					request_access[ship_id] = 0;
 					fleet[ship_id].parking = true;
 					clock_gettime(CLOCK_MONOTONIC, &fleet[ship_id].p_time);
 					time_add_ms(&fleet[ship_id].p_time, random_in_range(MIN_P_TIME, MAX_P_TIME));
@@ -414,7 +415,7 @@ const int id = get_task_index(arg);
 			}
 		}
 
-		if (check_yposition(fleet[ship].y, Y_PLACE))
+		if (request_access[i] == 0)
 		{
 			access_place = true;
 			ship = -1;
@@ -431,8 +432,7 @@ const int id = get_task_index(arg);
 			}
 		}
 
-		if (request_access[i] == -1 && check_yposition(fleet[i].y, Y_PORT - XSHIP) &&
-															!reply_access[i])
+		if (request_access[i] == -1 && !reply_access[i])
 		{
 			printf("ship %d frees\n", i);
 			reply_access[i] = true;
