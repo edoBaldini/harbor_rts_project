@@ -48,7 +48,7 @@ float degree_fix(float grade);
 //	SHIP FUNCTIONS
 //------------------------------------------------------------------------------
 void reverse_array(pair trace[], int last_index);
-int make_array_trace(BITMAP * t, pair trace[], int id, bool odd);
+int make_array_trace(BITMAP * t, pair trace[], int id, bool odd, int req);
 bool check_forward(float x_cur, float y_cur, float g_cur);
 bool check_yposition(float y_ship, int y);
 void follow_track_frw(int id, int i, pair mytrace[], int last_index);

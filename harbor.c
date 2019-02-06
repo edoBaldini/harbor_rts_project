@@ -1,6 +1,7 @@
 #include "harbor.h"
 #include <math.h>
 #include <stdio.h>
+#include <pthread.h>
 #include "ptask.h"
 
 #define XWIN			1400		// width monitor
@@ -71,6 +72,8 @@ bool end = false;
 int request_access[MAX_SHIPS];
 bool reply_access[MAX_SHIPS];
 
+pthread_mutex_t mutex_rr;
+pthread_mutex_t mutex_p;
 
 
 void * user_task(void * arg)
@@ -98,7 +101,10 @@ const int id = get_task_index(arg);
 
 			if (pos>= 0)
 			{
+				pthread_mutex_lock(&mutex_p);
 				ship_index = places[pos].ship_id;
+				pthread_mutex_unlock(&mutex_p);
+				
 				if (ship_index >= 0 && fleet[ship_index].parking == true)
 				{
 					fleet[ship_index].parking = false;
@@ -114,7 +120,10 @@ const int id = get_task_index(arg);
 
 			if (pos>= 0)
 			{
+				pthread_mutex_lock(&mutex_p);
 				ship_index = places[pos].ship_id;
+				pthread_mutex_unlock(&mutex_p);
+
 				if (ship_index >= 0 && fleet[ship_index].parking == true)
 				{
 					time_add_ms(&fleet[ship_index].p_time, 20);
@@ -238,8 +247,10 @@ const int id = get_task_index(arg);
 		y_cur = fleet[ship_id].y;
 		g_cur = fleet[ship_id].traj_grade;
 
+		pthread_mutex_lock(&mutex_rr);
 		cur_repl = reply_access[ship_id];
 		cur_req = request_access[ship_id];
+		pthread_mutex_unlock(&mutex_rr);
 
 		move = (check_forward(x_cur, y_cur, g_cur)) ? false: true;
 
@@ -248,7 +259,7 @@ const int id = get_task_index(arg);
 			if (!mytrace_computed)
 			{
 				last_index = make_array_trace(routes[ship_id].trace, mytrace, 
-												ship_id, routes[ship_id].odd);
+												ship_id, routes[ship_id].odd, cur_req);
 				mytrace_computed = true;
 				i = 0;
 			}
@@ -293,7 +304,7 @@ const int id = get_task_index(arg);
 			if (!mytrace_computed)
 			{
 				last_index = make_array_trace(routes[ship_id].trace, mytrace, 
-												ship_id, routes[ship_id].odd);
+												ship_id, routes[ship_id].odd, cur_req);
 				mytrace_computed = true;
 				i = 0;
 			}
@@ -336,7 +347,7 @@ const int id = get_task_index(arg);
 			if (!mytrace_computed)
 			{
 				last_index = make_array_trace(routes[ship_id].trace, mytrace,
-				 								ship_id, routes[ship_id].odd);
+				 								ship_id, routes[ship_id].odd, cur_req);
 				mytrace_computed = true;
 				i = 0;
 			}
@@ -363,9 +374,12 @@ const int id = get_task_index(arg);
 					fleet[ship_id].active = false;
 			}
 		}
-
+		
+		pthread_mutex_lock(&mutex_rr);
 		reply_access[ship_id] = cur_repl;
 		request_access[ship_id] = cur_req;
+		pthread_mutex_unlock(&mutex_rr);
+
 
 		if (deadline_miss(id))
 		{   
@@ -392,9 +406,11 @@ const int id = get_task_index(arg);
 
 	while (!end) 
 	{
-
+		
+		pthread_mutex_lock(&mutex_rr);
 		cur_repl = reply_access[i];
 		cur_req = request_access[i];
+		pthread_mutex_unlock(&mutex_rr);
 
 		if (cur_req == Y_PORT)
 		{
@@ -413,7 +429,9 @@ const int id = get_task_index(arg);
 		{
 			if (access_place && !enter_trace[i])
 			{	
+				pthread_mutex_lock(&mutex_p);
 				enter_trace[i] = assign_trace(i);
+				pthread_mutex_unlock(&mutex_p);
 
 				if (enter_trace[i])
 				{
@@ -434,7 +452,11 @@ const int id = get_task_index(arg);
 
 		if (cur_req == Y_EXIT && access_place && !exit_trace[i])
 		{ 
-			exit_trace[i] = assign_exit(i);
+
+				pthread_mutex_lock(&mutex_p);
+				exit_trace[i] = assign_exit(i);
+				pthread_mutex_unlock(&mutex_p);	
+
 			if (exit_trace[i])
 			{
 				printf("ship %d exiting\n", i);
@@ -448,12 +470,19 @@ const int id = get_task_index(arg);
 		{
 			printf("ship %d frees\n", i);
 			cur_repl = true;
+
+			pthread_mutex_lock(&mutex_p);
 			free_trace(i);
+			pthread_mutex_unlock(&mutex_p);
+			
 			access_place = true;
 		}
-
+		
+		pthread_mutex_lock(&mutex_rr);
 		reply_access[i] = cur_repl;
 		request_access[i] = cur_req;
+		pthread_mutex_unlock(&mutex_rr);
+
 
 		i = (i < ships_activated) ? i + 1 : 0;
 
@@ -556,6 +585,8 @@ void init(void)
 	enable_hardware_cursor();
 	show_mouse(screen);
 	
+	pthread_mutex_init(&mutex_rr, NULL);
+	pthread_mutex_init(&mutex_p, NULL);
 	task_create(display, PERIOD, DLINE, PRIO);
 	task_create(radar_task, 3, 6, PRIO);
 	task_create(controller_task, PERIOD, DLINE, PRIO);
@@ -678,8 +709,8 @@ int size = last_index;
 	}
 }
 
-int make_array_trace(BITMAP * t, pair trace[PORT_BMP_W * PORT_BMP_H], int id,
-																	bool odd)
+int make_array_trace(BITMAP * t, pair trace[PORT_BMP_W * PORT_BMP_H], int id, 
+															bool odd, int req)
 {
 int color;
 int index = 0;
@@ -714,7 +745,7 @@ for (j = PORT_BMP_H; j > 0; --j)
 	}
 	last_index = -- index;
 
-	if (request_access[id] == Y_EXIT)
+	if (req == Y_EXIT)
 		reverse_array(trace, last_index);
 
 	//routes[id].x = trace[last_index].x;
@@ -840,9 +871,9 @@ int j;
 }
 
 bool assign_trace(int ship)
- {
- int i = random_in_range(0, PLACE_NUMBER -1);
-
+{
+int i = random_in_range(0, PLACE_NUMBER -1);
+place cur_place;
 		if (places[i].available)
 		{	
 			routes[ship].trace = places[i].enter_trace;
