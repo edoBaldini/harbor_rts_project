@@ -201,13 +201,17 @@ const int id = get_task_index(arg);
 			clear_bitmap(radar);
 			circle(radar, R_BMP_W / 2, R_BMP_H / 2, R_BMP_H / 2, r_col);
 		}
-	
+		
+		blit(radar, screen, 0, 0,910, 0, radar->w, radar->h);
+
 		if (deadline_miss(id))
 		{   
 			printf("%d) deadline missed! radar\n", id);
 		}
 		wait_for_activation(id);
 	}
+
+	destroy_bitmap(radar);
 
 return NULL;
 }
@@ -474,7 +478,7 @@ const int id = get_task_index(arg);
 			pthread_mutex_lock(&mutex_p);
 			free_trace(i);
 			pthread_mutex_unlock(&mutex_p);
-			
+
 			access_place = true;
 		}
 		
@@ -504,18 +508,10 @@ BITMAP * back_sea_bmp;
 int i;
 
 	back_sea_bmp = create_bitmap(PORT_BMP_W, PORT_BMP_H);
-	sea = create_bitmap(PORT_BMP_W, PORT_BMP_H);
-	radar = create_bitmap(R_BMP_W, PORT_BMP_H);
-
-	sea_color = makecol(0,85,165);
-
 	clear_bitmap(back_sea_bmp);
-	clear_to_color(sea, sea_color);
-	clear_bitmap(radar);
 
 	port_bmp = load_bitmap("port.bmp", NULL);
-	circle(radar, R_BMP_W / 2, R_BMP_H / 2, R_BMP_H / 2, makecol(255, 255, 255));
-	fill_places();
+
 	// Task private variables
 	const int id = get_task_index(arg);
 	set_activation(id);
@@ -546,7 +542,6 @@ int i;
 
 		putpixel(back_sea_bmp, X_PORT, Y_PORT, makecol(255,0,255));
 		blit(back_sea_bmp, screen, 0,0,0,0,back_sea_bmp->w, back_sea_bmp->h); 
-		blit(radar, screen, 0, 0,910, 0, radar->w, radar->h);
 
 		if (deadline_miss(id))
 		{   
@@ -568,7 +563,6 @@ int i;
 	
 	destroy_bitmap(port_bmp);
 	destroy_bitmap(sea);
-	destroy_bitmap(radar);
 
 	return NULL;
 }
@@ -585,6 +579,17 @@ void init(void)
 	enable_hardware_cursor();
 	show_mouse(screen);
 	
+	sea = create_bitmap(PORT_BMP_W, PORT_BMP_H);
+	radar = create_bitmap(R_BMP_W, PORT_BMP_H);
+
+	sea_color = makecol(0,85,165);
+
+	clear_to_color(sea, sea_color);
+	clear_bitmap(radar);
+
+	circle(radar, R_BMP_W / 2, R_BMP_H / 2, R_BMP_H / 2, makecol(255, 255, 255));
+	fill_places();
+
 	pthread_mutex_init(&mutex_rr, NULL);
 	pthread_mutex_init(&mutex_p, NULL);
 	task_create(display, PERIOD, DLINE, PRIO);
