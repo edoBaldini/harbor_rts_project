@@ -10,7 +10,7 @@
 #define DLINE			15			// in ms
 #define PRIO			10			// priority level
 #define AUX_THREAD 		4
-#define MAX_THREADS		12			
+#define MAX_THREADS		15			
 #define MAX_SHIPS		MAX_THREADS - AUX_THREAD			// max number of ship MUST BE LOWER THAN 30
 #define FPS				200.0		
 #define FRAME_PERIOD	(1 / FPS)
@@ -256,7 +256,7 @@ bool cur_repl;
 bool move = true;
 bool wait = false;
 bool termination = false;
-bool is_terminated;
+bool active;
 bool is_parked;
 bool is_odd;
 float x_cur, y_cur, g_cur;
@@ -273,13 +273,13 @@ const int id = get_task_index(arg);
 	mytrace_computed 	= false;
 	i 					= 0;
 
-	while (!end && fleet[ship_id].active) 
+	while (!end) 
 	{
 		pthread_mutex_lock(&mutex_fleet);
 		x_cur = fleet[ship_id].x;
 		y_cur = fleet[ship_id].y;
 		g_cur = fleet[ship_id].traj_grade;
-		is_terminated = fleet[ship_id].active;
+		active = fleet[ship_id].active;
 		is_parked = fleet[ship_id].parking;
 		clock_gettime(CLOCK_MONOTONIC, &now);
 		time_wakeup = time_cmp(now, fleet[ship_id].p_time);
@@ -295,141 +295,149 @@ const int id = get_task_index(arg);
 		cur_req = request_access[ship_id];
 		pthread_mutex_unlock(&mutex_rr);
 
-		move = (check_forward(x_cur, y_cur, g_cur)) ? false: true;
-
-		if (first_step)
-		{	
-			if (!mytrace_computed)
-			{
-				last_index = make_array_trace(cur_trace, mytrace, 
-												ship_id, is_odd, cur_req);
-				mytrace_computed = true;
-				i = 0;
-			}
-
-			if(check_yposition(y_cur, YGUARD_POS))
-			{
-				cur_req = Y_PORT;
-				second_step = true;
-				first_step = false;
-			}
-
-			else if (move)
-			{
-				follow_track_frw(ship_id, i, mytrace, last_index);
-				i++;
-			}
-
-		}
-
-		if (second_step && cur_repl)
+		if (active)
 		{
-			if(check_yposition(y_cur, Y_PORT))
-			{
-				cur_repl = false;
-				cur_req = Y_PLACE;
-				i = 0;
-				mytrace_computed = false;
-				third_step = true;
-				second_step = false;
-			}
-
-			else
-			{
-				follow_track_frw(ship_id, i, mytrace, last_index);
-				i++;
-			}
-
-		}
-
-		if (third_step && cur_repl)
-		{
-			if (!mytrace_computed)
-			{
-				last_index = make_array_trace(cur_trace, mytrace, 
-												ship_id, is_odd, cur_req);
-				mytrace_computed = true;
-				i = 0;
-			}
-
-			if(check_yposition(y_cur, Y_PLACE - YSHIP))
-			{
-
-				if (!wait)
-				{	
-					is_parked = true;
-
-					pthread_mutex_lock(&mutex_fleet);
-					clock_gettime(CLOCK_MONOTONIC, &fleet[ship_id].p_time);
-					time_add_ms(&fleet[ship_id].p_time, random_in_range(MIN_P_TIME, MAX_P_TIME));
-					pthread_mutex_unlock(&mutex_fleet);
-
-					wait = true;
+			move = (check_forward(x_cur, y_cur, g_cur)) ? false: true;
+			if (first_step)
+			{	
+				if (!mytrace_computed)
+				{
+					last_index = make_array_trace(cur_trace, mytrace, 
+													ship_id, is_odd, cur_req);
+					mytrace_computed = true;
+					i = 0;
 				}
+
+				if(check_yposition(y_cur, YGUARD_POS))
+				{
+					cur_req = Y_PORT;
+					second_step = true;
+					first_step = false;
+				}
+
+				else if (move)
+				{
+					follow_track_frw(ship_id, i, mytrace, last_index);
+					i++;
+				}
+
+			}
+
+			if (second_step && cur_repl)
+			{
+				if(check_yposition(y_cur, Y_PORT))
+				{
+					cur_repl = false;
+					cur_req = Y_PLACE;
+					i = 0;
+					mytrace_computed = false;
+					third_step = true;
+					second_step = false;
+				}
+
 				else
 				{
-					if (time_wakeup >= 0 || !is_parked)
+					follow_track_frw(ship_id, i, mytrace, last_index);
+					i++;
+				}
+
+			}
+
+			if (third_step && cur_repl)
+			{
+				if (!mytrace_computed)
+				{
+					last_index = make_array_trace(cur_trace, mytrace, 
+													ship_id, is_odd, cur_req);
+					mytrace_computed = true;
+					i = 0;
+				}
+
+				if(check_yposition(y_cur, Y_PLACE - YSHIP))
+				{
+
+					if (!wait)
+					{	
+						is_parked = true;
+
+						pthread_mutex_lock(&mutex_fleet);
+						clock_gettime(CLOCK_MONOTONIC, &fleet[ship_id].p_time);
+						time_add_ms(&fleet[ship_id].p_time, random_in_range(MIN_P_TIME, MAX_P_TIME));
+						pthread_mutex_unlock(&mutex_fleet);
+
+						wait = true;
+					}
+					else
 					{
-						is_parked = false;
-						cur_repl = false;
-						cur_req = Y_EXIT;
+						if (time_wakeup >= 0 || !is_parked)
+						{
+							is_parked = false;
+							cur_repl = false;
+							cur_req = Y_EXIT;
+							mytrace_computed = false;
+							third_step = false;
+							fourth_step = true;
+						}
+					}
+				}
+
+				else if(move)
+				{
+					follow_track_frw(ship_id, i, mytrace, last_index);
+					i++;
+				}
+
+			}
+
+			if (fourth_step && cur_repl)
+			{
+				if (!mytrace_computed)
+				{
+					last_index = make_array_trace(cur_trace, mytrace,
+					 								ship_id, is_odd, cur_req);
+					mytrace_computed = true;
+					i = 0;
+				}
+				if (y_cur < mytrace[0].y)
+					rotate90_ship(ship_id, x_cur,Y_PLACE, mytrace[0].y + YSHIP);
+
+				else
+				{
+					follow_track_frw(ship_id, i, mytrace, last_index);
+					i++;
+				}
+
+				if (check_yposition(y_cur, Y_PORT - XSHIP) && 
+													cur_req != -1)
+				{
+					cur_repl = false;
+					cur_req = -1;
+				}
+
+				if (cur_req == -1 && cur_repl)
+				{
+					termination = exit_ship(ship_id, x_cur);
+					if (termination)
+					{
 						mytrace_computed = false;
-						third_step = false;
-						fourth_step = true;
+						cur_req = YGUARD_POS;
+						cur_repl = false;
+						first_step = true;
+						fourth_step = false;
+						active = false;
 					}
 				}
 			}
+			pthread_mutex_lock(&mutex_fleet);
+			fleet[ship_id].active = active;
+			fleet[ship_id].parking = is_parked;
+			pthread_mutex_unlock(&mutex_fleet);
 
-			else if(move)
-			{
-				follow_track_frw(ship_id, i, mytrace, last_index);
-				i++;
-			}
-
+			pthread_mutex_lock(&mutex_rr);
+			reply_access[ship_id] = cur_repl;
+			request_access[ship_id] = cur_req;
+			pthread_mutex_unlock(&mutex_rr);
 		}
-
-		if (fourth_step && cur_repl)
-		{
-			if (!mytrace_computed)
-			{
-				last_index = make_array_trace(cur_trace, mytrace,
-				 								ship_id, is_odd, cur_req);
-				mytrace_computed = true;
-				i = 0;
-			}
-			if (y_cur < mytrace[0].y)
-				rotate90_ship(ship_id, x_cur,Y_PLACE, mytrace[0].y + YSHIP);
-
-			else
-			{
-				follow_track_frw(ship_id, i, mytrace, last_index);
-				i++;
-			}
-
-			if (check_yposition(y_cur, Y_PORT - XSHIP) && 
-												cur_req != -1)
-			{
-				cur_repl = false;
-				cur_req = -1;
-			}
-
-			if (cur_req == -1 && cur_repl)
-			{
-				termination = exit_ship(ship_id, x_cur);
-				if (termination)
-					is_terminated = false;
-			}
-		}
-		pthread_mutex_lock(&mutex_fleet);
-		fleet[ship_id].active = is_terminated;
-		fleet[ship_id].parking = is_parked;
-		pthread_mutex_unlock(&mutex_fleet);
-
-		pthread_mutex_lock(&mutex_rr);
-		reply_access[ship_id] = cur_repl;
-		request_access[ship_id] = cur_req;
-		pthread_mutex_unlock(&mutex_rr);
-
 
 		if (deadline_miss(id))
 		{   
@@ -575,7 +583,7 @@ float x_cur, y_cur, g_cur;
 			g_cur = fleet[i].traj_grade;
 			ship_cur = fleet[i].boat;
 			pthread_mutex_unlock(&mutex_fleet);
-			
+
 			pthread_mutex_lock(&mutex_sea);
 			rotate_sprite(sea, ship_cur, x_cur - (XSHIP / 2 ), y_cur, itofix(degree_fix(g_cur)+64));
 			pthread_mutex_unlock(&mutex_sea);
@@ -674,6 +682,7 @@ void init_ship()
 {
 int i;
 int index = (ships_activated % 3);
+bool active;
 
 	if (ships_activated < MAX_SHIPS)
 	{
@@ -703,8 +712,11 @@ int index = (ships_activated % 3);
 	else
 	{
 		for (i = 0; i < MAX_SHIPS; ++i)
-		{
-			if (!fleet[i].active)
+		{	
+			pthread_mutex_lock(&mutex_fleet);
+			active = fleet[i].active;
+			pthread_mutex_unlock(&mutex_fleet);
+			if (!active)
 			{
 				printf("reassigned %d\n", i);
 				pthread_mutex_lock(&mutex_fleet);
@@ -717,7 +729,7 @@ int index = (ships_activated % 3);
 				pthread_mutex_lock(&mutex_route);
 				routes[i].x = X_PORT;
 				routes[i].y = YGUARD_POS;
-				routes[i].trace = enter_trace[index]; 
+				routes[i].trace = enter_trace[i % 3]; 
 				routes[i].odd = ((i % 3) == 1);
 				pthread_mutex_unlock(&mutex_route);
 
