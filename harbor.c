@@ -71,6 +71,7 @@ int ships_activated = 0;
 int request_access[MAX_SHIPS];
 bool reply_access[MAX_SHIPS];
 bool end = false;
+bool show_routes = false;
 
 pthread_mutex_t mutex_rr;
 pthread_mutex_t mutex_p;
@@ -156,6 +157,11 @@ const int id = get_task_index(arg);
 
 		if (scan == KEY_ENTER){
 			init_ship();
+		}
+		if (scan == KEY_SPACE)
+		{
+
+			show_routes = (show_routes) ? false : true;
 		}
 
 		if (scan == KEY_ESC)
@@ -569,9 +575,7 @@ float x_cur, y_cur, g_cur;
 			g_cur = fleet[i].traj_grade;
 			ship_cur = fleet[i].boat;
 			pthread_mutex_unlock(&mutex_fleet);
-			/*pivot_sprite(sea, fleet[i].boat, fleet[i].x, fleet[i].y, 
-									fleet[i].boat-> w / 2, 0, 
-									itofix(degree_fix(fleet[i].traj_grade)+64));*/
+			
 			pthread_mutex_lock(&mutex_sea);
 			rotate_sprite(sea, ship_cur, x_cur - (XSHIP / 2 ), y_cur, itofix(degree_fix(g_cur)+64));
 			pthread_mutex_unlock(&mutex_sea);
@@ -582,11 +586,16 @@ float x_cur, y_cur, g_cur;
 		pthread_mutex_unlock(&mutex_sea);
 		draw_sprite(back_sea_bmp, port_bmp, 0, 0);
 		
-//	USEFUL TO VISUALIZE THE TRACKS THAT THE SHIPS ARE FOLLOWING
-		//for (int k = 0; k < ships_activated; k++)
-		//	if (routes[0].trace != NULL)
-		//		draw_sprite(back_sea_bmp, routes[k].trace, 0,0);
-		
+		if (show_routes)
+		{
+			pthread_mutex_lock(&mutex_route);
+			for (i = 0; i < ships_activated; ++i)
+			{
+				draw_sprite(back_sea_bmp, routes[i].trace, 0,0);
+			}
+			pthread_mutex_unlock(&mutex_route);
+
+		}
 //	USEFUL TO VISUALIZE CHECK_FWD()
 		/*for (int k = 0; k < ships_activated; ++k)
 			for (int j = 2; j < 70; j++)
