@@ -52,8 +52,8 @@ int make_array_trace(BITMAP * t, pair trace[], int id, bool odd, int req);
 bool check_forward(float x_cur, float y_cur, float g_cur);
 bool check_yposition(float y_ship, int y);
 void follow_track_frw(int id, int i, pair mytrace[], int last_index);
-void rotate90_ship(int id, int y1, int y2);
-bool exit_ship(int id);
+void rotate90_ship(int id, float x_cur, int y1, int y2);
+bool exit_ship(int id, float x_cur);
 
 //------------------------------------------------------------------------------
 //	USER FUNCTIONS
@@ -63,7 +63,6 @@ int click_place(int offset, int delta, int l_x, int r_x);
 //------------------------------------------------------------------------------
 //	CONTROLLER FUNCTIONS
 //------------------------------------------------------------------------------
-bool try_access_port();
 bool assign_trace(int ship);
 bool assign_exit(int ship);
 void free_trace(int ship);
