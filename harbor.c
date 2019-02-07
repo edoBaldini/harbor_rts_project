@@ -65,12 +65,12 @@ struct route routes[MAX_SHIPS];
 
 BITMAP * sea;
 BITMAP * radar;
+BITMAP * enter_trace[3];
 int sea_color;
 int ships_activated = 0;
-bool end = false;
-
 int request_access[MAX_SHIPS];
 bool reply_access[MAX_SHIPS];
+bool end = false;
 
 pthread_mutex_t mutex_rr;
 pthread_mutex_t mutex_p;
@@ -199,7 +199,7 @@ const int id = get_task_index(arg);
 			pthread_mutex_lock(&mutex_sea);
 			color = getpixel(sea, x, y);
 			pthread_mutex_unlock(&mutex_sea);
-			for (j = 0; j <= ships_activated; j++)
+			for (j = 0; j <= MAX_SHIPS; j++)
 			{
 				found = check_ship(j, color);
 
@@ -528,7 +528,7 @@ const int id = get_task_index(arg);
 		pthread_mutex_unlock(&mutex_rr);
 
 
-		i = (i < ships_activated) ? i + 1 : 0;
+		i = (i < MAX_SHIPS) ? i + 1 : 0;
 
 		if (deadline_miss(id))
 		{   
@@ -644,6 +644,10 @@ void init(void)
 	circle(radar, R_BMP_W / 2, R_BMP_H / 2, R_BMP_H / 2, makecol(255, 255, 255));
 	fill_places();
 
+	enter_trace[0] = load_bitmap("e1.bmp", NULL);
+	enter_trace[1] = load_bitmap("e2.bmp", NULL);
+	enter_trace[2] = load_bitmap("e3.bmp", NULL);
+	
 	pthread_mutex_init(&mutex_rr, NULL);
 	pthread_mutex_init(&mutex_p, NULL);
 	pthread_mutex_init(&mutex_fleet, NULL);
@@ -661,11 +665,6 @@ void init_ship()
 {
 int i;
 int index = (ships_activated % 3);
-BITMAP * enter_trace[3];
-
-enter_trace[0] = load_bitmap("e1.bmp", NULL);
-enter_trace[1] = load_bitmap("e2.bmp", NULL);
-enter_trace[2] = load_bitmap("e3.bmp", NULL);
 
 	if (ships_activated < MAX_SHIPS)
 	{
@@ -690,7 +689,7 @@ enter_trace[2] = load_bitmap("e3.bmp", NULL);
 
 		ships_activated += 1;
 
-		task_create(ship_task, 20, 25, PRIO);
+		task_create(ship_task, PERIOD, DLINE, PRIO);
 	}
 	else
 	{
@@ -1053,7 +1052,7 @@ void mark_label(BITMAP * boat)
 
 }
 
-void terminate(int ships_terminated[MAX_SHIPS])
+/*void terminate(int ships_terminated[MAX_SHIPS])
 {
 int i, j;
 	for (i = 0; i < ships_activated; ++i)
@@ -1066,7 +1065,7 @@ int i, j;
 		}
 	}
 
-}
+}*/
 
 int random_in_range(int min_x, int max_x)
 {
