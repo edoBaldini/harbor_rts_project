@@ -72,7 +72,7 @@ const int id = get_task_index(arg);
 					i = 0;
 				}
 
-				if(check_yposition(y_cur, YGUARD_POS))
+				if(check_position(y_cur, YGUARD_POS))
 				{
 					cur_req = Y_PORT;
 					second_step = true;
@@ -89,7 +89,7 @@ const int id = get_task_index(arg);
 
 			if (second_step && cur_repl)
 			{
-				if(check_yposition(y_cur, Y_PORT))
+				if(check_position(y_cur, Y_PORT))
 				{
 					cur_repl = false;
 					cur_req = Y_PLACE;
@@ -117,13 +117,18 @@ const int id = get_task_index(arg);
 					i = 0;
 				}
 
-				if(check_yposition(y_cur, Y_PLACE - YSHIP))
+				if (check_position(y_cur, Y_PLACE + XSHIP))
+				{
+					cur_req = 1;
+				}
+
+				if(check_position(y_cur, Y_PLACE - YSHIP))
 				{
 
 					if (!wait)
 					{	
+						cur_req = 1;
 						is_parked = true;
-
 						pthread_mutex_lock(&mutex_fleet);
 						clock_gettime(CLOCK_MONOTONIC, &fleet[ship_id].p_time);
 						time_add_ms(&fleet[ship_id].p_time, random_in_range(MIN_P_TIME, MAX_P_TIME));
@@ -171,14 +176,12 @@ const int id = get_task_index(arg);
 					i++;
 				}
 
-				if (check_yposition(y_cur, Y_PORT - XSHIP) && 
-													cur_req != -1)
+				if (check_position(y_cur, Y_PORT - XSHIP) && cur_req == Y_EXIT)
 				{
-					cur_repl = false;
 					cur_req = -1;
 				}
 
-				if (cur_req == -1 && cur_repl)
+				if (x_cur <= EPSILON || x_cur >= PORT_BMP_W - EPSILON)
 				{
 					termination = exit_ship(ship_id, x_cur);
 					if (termination)
@@ -290,7 +293,7 @@ int color;
  	return false;
 }
 
-bool check_yposition(float y_ship, int y)
+bool check_position(float y_ship, int y)
 {
 	return fabs(y_ship - y) <= EPSILON;
 }

@@ -195,7 +195,6 @@ bool access_place = true;
 bool enter_trace[MAX_SHIPS] = {false};
 bool exit_trace[MAX_SHIPS] = {false};
 bool cur_repl;
-float cur_y;
 const int id = get_task_index(arg);
 	set_activation(id);
 
@@ -206,10 +205,6 @@ const int id = get_task_index(arg);
 		cur_repl = reply_access[i];
 		cur_req = request_access[i];
 		pthread_mutex_unlock(&mutex_rr);
-
-		pthread_mutex_lock(&mutex_fleet);
-		cur_y = fleet[i].y;
-		pthread_mutex_unlock(&mutex_fleet);
 
 		if (cur_req == Y_PORT)
 		{
@@ -243,13 +238,12 @@ const int id = get_task_index(arg);
 			}
 		}
 
-		pthread_mutex_lock(&mutex_fleet);
-		if (check_yposition(fleet[ship].y, Y_PLACE))
-		{
+		if (cur_req == 1 && ship == i)
+		{	
+			cur_req = Y_PLACE;
 			access_place = true;
 			ship = -1;
 		}
-		pthread_mutex_unlock(&mutex_fleet);
 
 		if (cur_req == Y_EXIT && access_place && !exit_trace[i])
 		{ 
@@ -262,9 +256,9 @@ const int id = get_task_index(arg);
 			}
 		}
 
-		if (cur_req == -1 && check_yposition(cur_y, Y_PORT - XSHIP) &&
-															!cur_repl)
+		if (cur_req == -1 )
 		{
+			cur_req = -2;
 			printf("ship %d frees\n", i);
 			cur_repl = true;
 
