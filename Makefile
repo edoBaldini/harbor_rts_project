@@ -20,11 +20,14 @@ LIBS = -lpthread  -lm
 #--------------------------------------------------- 
 # Dependencies 
 #---------------------------------------------------
-$(MAIN): $(MAIN).o ptask.o
-		$(CC) $(CFLAGS) -o $(MAIN) $(MAIN).c ptask.o `allegro-config --libs` $(LIBS)
+$(MAIN): $(MAIN).o ptask.o ship.o
+		$(CC) $(CFLAGS) -o $(MAIN) $(MAIN).c ptask.o ship.o `allegro-config --libs` $(LIBS)
 
 ptask.o: ptask.c
 		$(CC) -c ptask.c
+
+ship.o:	ship.c
+		$(CC) -c ship.c
 
 clean: 
 		rm -f *.o 
