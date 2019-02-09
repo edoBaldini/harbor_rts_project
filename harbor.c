@@ -29,6 +29,7 @@ pthread_mutex_t mutex_sea;
 void * user_task(void * arg)
 {   
 char scan;
+int time_passed;
 int pos = -1;
 int ship_index = -1;
 int half_num_parking = PLACE_NUMBER / 2;
@@ -37,12 +38,19 @@ int offset = 19;
 int l_x = 121;
 int r_x = PORT_BMP_W - l_x - delta - (half_num_parking - 1) * (offset + delta);
 bool is_parked = false;
+struct timespec now;
+struct timespec w_time;
+
+
 // Task private variables
 const int id = get_task_index(arg);
 	set_activation(id);
 
 	while (!end) 
 	{
+		clock_gettime(CLOCK_MONOTONIC, &now);
+		time_passed = time_cmp(now, w_time);
+
 		if (mouse_b == 1)
 		{
 			pos = click_place(offset, delta, l_x, r_x);
@@ -101,9 +109,14 @@ const int id = get_task_index(arg);
 			scan = readkey() >> 8;
 		}
 
-		if (scan == KEY_ENTER){
+		if (scan == KEY_ENTER && time_passed >= 0)
+		{
+			clock_gettime(CLOCK_MONOTONIC, &w_time);
+			time_add_ms(&w_time, 2000);
+
 			init_ship();
 		}
+
 		if (scan == KEY_SPACE)
 		{
 
@@ -335,11 +348,20 @@ float x_cur, y_cur, g_cur;
 
 		}
 //	USEFUL TO VISUALIZE CHECK_FWD()
-		/*for (int k = 0; k < ships_activated; ++k)
-			for (int j = 2; j < 70; j++)
+		/*for (int k = 0; k < ships_activated; ++k){
+			float alpha = M_PI;
+			for (int j = (YSHIP / 2); j < 70; j++)
 			{
-				putpixel(back_sea_bmp, fleet[k].x + j * cos(fleet[k].traj_grade), fleet[k].y + j * sin(fleet[k].traj_grade), 0);
-			}*/
+				alpha += 0.2;
+				alpha = (alpha >= 2 * M_PI) ? M_PI : alpha;
+				float x = fleet[k].x + j * cos(fleet[k].traj_grade);
+				float y =  fleet[k].y + j * sin(fleet[k].traj_grade) + (YSHIP / 2);
+ 				putpixel(back_sea_bmp, x, y, 0);
+ 				float x1 = fleet[k].x + j * cos(alpha);
+				float y1 =  fleet[k].y + j * sin(alpha) + (YSHIP / 2);
+ 				putpixel(back_sea_bmp, x1, y1, 0);
+			}
+		}*/
 
 		putpixel(back_sea_bmp, X_PORT, Y_PORT, makecol(255,0,255));
 		blit(back_sea_bmp, screen, 0,0,0,0,back_sea_bmp->w, back_sea_bmp->h); 

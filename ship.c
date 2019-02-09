@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include "ptask.h"
 
+static int m;
 void * ship_task(void * arg)
 {
 
@@ -59,9 +60,11 @@ const int id = get_task_index(arg);
 		cur_req = request_access[ship_id];
 		pthread_mutex_unlock(&mutex_rr);
 
+		m = ship_id;
 		if (active)
 		{
 			move = (check_forward(x_cur, y_cur, g_cur)) ? false: true;
+			
 			if (first_step)
 			{	
 				if (!mytrace_computed)
@@ -70,9 +73,11 @@ const int id = get_task_index(arg);
 													ship_id, is_odd, cur_req);
 					mytrace_computed = true;
 					i = 0;
+					routes[ship_id].y = Y_PORT;
+					routes[ship_id].x = X_PORT;
 				}
 
-				if(check_position(y_cur, YGUARD_POS))
+				/*if(check_position(y_cur, YGUARD_POS))
 				{
 					cur_req = Y_PORT;
 					second_step = true;
@@ -88,7 +93,7 @@ const int id = get_task_index(arg);
 			}
 
 			if (second_step && cur_repl)
-			{
+			{*/
 				if(check_position(y_cur, Y_PORT))
 				{
 					cur_repl = false;
@@ -97,9 +102,10 @@ const int id = get_task_index(arg);
 					mytrace_computed = false;
 					third_step = true;
 					second_step = false;
+					first_step = false;
 				}
 
-				else
+				else if (move)
 				{
 					follow_track_frw(ship_id, i, mytrace, last_index);
 					i++;
@@ -150,7 +156,7 @@ const int id = get_task_index(arg);
 					}
 				}
 
-				else if(move)
+				else //if(move)
 				{
 					follow_track_frw(ship_id, i, mytrace, last_index);
 					i++;
@@ -276,19 +282,56 @@ for (j = PORT_BMP_H; j > 0; --j)
 	return last_index;
 }
 
+bool check_straight(float x_cur, float y_cur, float g_cur)
+{
+float x, y, j;
+int color;
+float alpha = M_PI;
+j = (YSHIP / 2); 
+	while (j < 90)
+	{
+		alpha = (alpha >= 2 * M_PI) ? M_PI : alpha + 0.2; 
+		x = x_cur + j * cos(alpha);
+		y = y_cur + j * sin(alpha) + (YSHIP / 2) ;
+		color = getpixel(sea, x, y);
+
+		if (color != SEA_COLOR && color != -1)
+		{
+			if (x < x_cur || x_cur > X_PORT)//&& y >= y_cur)
+			{
+
+				return false;
+			}
+
+			else return true; 		
+		}
+		j += 0.5;
+	}
+	
+ 	return false;
+}
+
 bool check_forward(float x_cur, float y_cur, float g_cur)
 {
-int x, y, j;
+float x, y, j;
 int color;
 
-	for (j = 2; j < 70; ++j )
+	for (j = (YSHIP/2); j < 90; ++j )
 	{
 		x = x_cur + j * cos(g_cur);
-		y = y_cur + j * sin(g_cur);
+		y = y_cur + j * sin(g_cur) + (YSHIP / 2 );
 		color = getpixel(sea, x, y);
 		if (color != SEA_COLOR && color != -1)
+		{
+
 			return true; 		
-	}
+		}
+		else if (check_straight(x_cur, y_cur, g_cur))
+		{
+			return true;
+		}
+
+	}	
 	
  	return false;
 }
