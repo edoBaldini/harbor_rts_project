@@ -219,21 +219,6 @@ const int id = get_task_index(arg);
 		cur_req = request_access[i];
 		pthread_mutex_unlock(&mutex_rr);
 
-		if (cur_req == Y_PORT)
-		{
-			if (access_port)
-			{
-				printf("ship %d enters to the port\n", i);
-				pthread_mutex_lock(&mutex_route);
-				routes[i].x = X_PORT;
-				routes[i].y = Y_PORT;
-				pthread_mutex_unlock(&mutex_route);
-				cur_repl = true;
-				access_port = false;
-
-			}
-		}
-
 		if (cur_req == Y_PLACE)
 		{
 			if (access_place && !enter_trace[i])
@@ -274,7 +259,8 @@ const int id = get_task_index(arg);
 			cur_req = -2;
 			printf("ship %d frees\n", i);
 			cur_repl = true;
-
+			enter_trace[i] = false;
+			exit_trace[i] = false;
 			free_trace(i);
 			access_place = true;
 		}
@@ -438,7 +424,7 @@ bool active;
 
 	if (ships_activated < MAX_SHIPS)
 	{
-		printf("ships_activated %d\n", ships_activated);
+		printf("ships_activated  %d  MAX_SHIPS %d\n", ships_activated, MAX_SHIPS);
 
 		pthread_mutex_lock(&mutex_fleet);
 		fleet[ships_activated].boat = create_bitmap(XSHIP, YSHIP);
@@ -452,7 +438,7 @@ bool active;
 
 		pthread_mutex_lock(&mutex_route);
 		routes[ships_activated].x = X_PORT;
-		routes[ships_activated].y = YGUARD_POS;
+		routes[ships_activated].y = Y_PORT;
 		routes[ships_activated].trace = enter_trace[index]; 
 		routes[ships_activated].odd = (index == 1);
 		pthread_mutex_unlock(&mutex_route);
@@ -480,7 +466,7 @@ bool active;
 
 				pthread_mutex_lock(&mutex_route);
 				routes[i].x = X_PORT;
-				routes[i].y = YGUARD_POS;
+				routes[i].y = Y_PORT;
 				routes[i].trace = enter_trace[i % 3]; 
 				routes[i].odd = ((i % 3) == 1);
 				pthread_mutex_unlock(&mutex_route);

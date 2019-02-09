@@ -34,7 +34,6 @@ const int id = get_task_index(arg);
 	first_step			= true;
 	second_step 		= false;
 	third_step 			= false;
-	fourth_step			= false;
 	mytrace_computed 	= false;
 	i 					= 0;
 
@@ -73,13 +72,14 @@ const int id = get_task_index(arg);
 													ship_id, is_odd, cur_req);
 					mytrace_computed = true;
 					i = 0;
-					routes[ship_id].y = Y_PORT;
-					routes[ship_id].x = X_PORT;
 				}
 
-				/*if(check_position(y_cur, YGUARD_POS))
+				if(check_position(y_cur, Y_PORT))
 				{
-					cur_req = Y_PORT;
+					cur_repl = false;
+					cur_req = Y_PLACE;
+					i = 0;
+					mytrace_computed = false;
 					second_step = true;
 					first_step = false;
 				}
@@ -93,30 +93,10 @@ const int id = get_task_index(arg);
 			}
 
 			if (second_step && cur_repl)
-			{*/
-				if(check_position(y_cur, Y_PORT))
-				{
-					cur_repl = false;
-					cur_req = Y_PLACE;
-					i = 0;
-					mytrace_computed = false;
-					third_step = true;
-					second_step = false;
-					first_step = false;
-				}
-
-				else if (move)
-				{
-					follow_track_frw(ship_id, i, mytrace, last_index);
-					i++;
-				}
-
-			}
-
-			if (third_step && cur_repl)
 			{
 				if (!mytrace_computed)
 				{
+
 					last_index = make_array_trace(cur_trace, mytrace, 
 													ship_id, is_odd, cur_req);
 					mytrace_computed = true;
@@ -149,9 +129,10 @@ const int id = get_task_index(arg);
 							is_parked = false;
 							cur_repl = false;
 							cur_req = Y_EXIT;
+							wait = false;
 							mytrace_computed = false;
-							third_step = false;
-							fourth_step = true;
+							second_step = false;
+							third_step = true;
 						}
 					}
 				}
@@ -164,7 +145,7 @@ const int id = get_task_index(arg);
 
 			}
 
-			if (fourth_step && cur_repl)
+			if (third_step && cur_repl)
 			{
 				if (!mytrace_computed)
 				{
@@ -196,7 +177,7 @@ const int id = get_task_index(arg);
 						cur_req = YGUARD_POS;
 						cur_repl = false;
 						first_step = true;
-						fourth_step = false;
+						third_step = false;
 						active = false;
 					}
 				}
