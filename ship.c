@@ -328,6 +328,19 @@ bool check_position(float y_ship, int y)
 	return fabs(y_ship - y) <= EPSILON;
 }
 
+
+void grade_filter(int i, int id,pair mytrace[X_PORT * Y_PORT])
+{
+float p = powf(M_E,(-0.115129 * PERIOD));
+//float p = 0.1;
+
+float grade = p*(degree_rect(fleet[id].x, fleet[id].y, mytrace[i + 5].x, mytrace[i + 5].y)) + (1 - p)*(fleet[id].traj_grade);
+
+fleet[id].traj_grade = grade;
+
+}
+
+
 void follow_track_frw(int id, int i, pair mytrace[X_PORT * Y_PORT], 
 																int last_index)
 {
@@ -337,11 +350,12 @@ void follow_track_frw(int id, int i, pair mytrace[X_PORT * Y_PORT],
 		fleet[id].x = mytrace[i].x;
 		fleet[id].y = mytrace[i].y;
 
-		if (last_index > i + 60)
+		grade_filter(i, id, mytrace);
+		/*if (last_index > i + 60)
 			fleet[id].traj_grade = degree_rect(fleet[id].x, fleet[id].y, 
-						mytrace[i + 20].x, mytrace[i + 20].y);
-		else 
-			fleet[id].traj_grade = fleet[id].traj_grade;
+						mytrace[i + 20].x, mytrace[i + 20].y);*/
+		//else 
+		//	fleet[id].traj_grade = fleet[id].traj_grade;
 		pthread_mutex_unlock(&mutex_fleet);
 	}
 }

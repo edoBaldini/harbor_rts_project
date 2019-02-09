@@ -4,8 +4,8 @@
 
 #define XWIN			1400		// width monitor
 #define YWIN			700			// height monitor
-#define PERIOD			10			// in ms
-#define DLINE			15			// in ms
+#define PERIOD			20			// in ms
+#define DLINE			25			// in ms
 #define PRIO			10			// priority level
 #define AUX_THREAD 		4
 #define MAX_THREADS		15			

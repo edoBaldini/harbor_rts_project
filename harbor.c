@@ -408,7 +408,7 @@ void init(void)
 	pthread_mutex_init(&mutex_route, NULL);
 	pthread_mutex_init(&mutex_sea, NULL);
 
-	task_create(display, 50	, 69, PRIO);
+	task_create(display, PERIOD	, DLINE, PRIO);
 	task_create(radar_task, 3, 6, PRIO);
 	task_create(controller_task, PERIOD, DLINE, PRIO);
 	task_create(user_task, PERIOD, DLINE, PRIO);
