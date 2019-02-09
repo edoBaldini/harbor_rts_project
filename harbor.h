@@ -97,10 +97,10 @@ extern int request_access[MAX_SHIPS];
 
 extern bool reply_access[MAX_SHIPS];
 extern bool end;
-
 extern pthread_mutex_t mutex_fleet;
 extern pthread_mutex_t mutex_route;
 extern pthread_mutex_t mutex_rr;
+extern pthread_mutex_t mutex_sea;
 
 
 void * ship_task(void * arg);

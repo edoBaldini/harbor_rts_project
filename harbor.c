@@ -316,7 +316,6 @@ float x_cur, y_cur, g_cur;
 			pthread_mutex_lock(&mutex_sea);
 			rotate_sprite(sea, ship_cur, x_cur - (XSHIP / 2 ), y_cur, itofix(degree_fix(g_cur)+64));
 			pthread_mutex_unlock(&mutex_sea);
-
 		}
 		pthread_mutex_lock(&mutex_sea);
 		blit(sea, back_sea_bmp, 0, 0, 0,0,sea->w, sea->h);
@@ -328,7 +327,7 @@ float x_cur, y_cur, g_cur;
 			pthread_mutex_lock(&mutex_route);
 			for (i = 0; i < ships_activated; ++i)
 			{
-				draw_sprite(back_sea_bmp, routes[i].trace, 0,0);
+				draw_sprite(back_sea_bmp, routes[i].trace, 0, YSHIP / 2);
 			}
 			pthread_mutex_unlock(&mutex_route);
 
@@ -409,7 +408,7 @@ void init(void)
 	pthread_mutex_init(&mutex_route, NULL);
 	pthread_mutex_init(&mutex_sea, NULL);
 
-	task_create(display, PERIOD, DLINE, PRIO);
+	task_create(display, 50	, 69, PRIO);
 	task_create(radar_task, 3, 6, PRIO);
 	task_create(controller_task, PERIOD, DLINE, PRIO);
 	task_create(user_task, PERIOD, DLINE, PRIO);

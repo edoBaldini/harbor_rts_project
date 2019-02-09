@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include "ptask.h"
 
-static int m;
 void * ship_task(void * arg)
 {
 
@@ -13,8 +12,6 @@ int ship_id;
 int last_index;
 int cur_req;
 int time_wakeup;
-pair mytrace[X_PORT * Y_PORT];
-struct timespec now;
 bool mytrace_computed;
 bool first_step, second_step, third_step, fourth_step;
 bool cur_repl;
@@ -25,7 +22,11 @@ bool active;
 bool is_parked;
 bool is_odd;
 float x_cur, y_cur, g_cur;
+
 BITMAP * cur_trace;
+pair mytrace[X_PORT * Y_PORT];
+
+struct timespec now;
 
 	// Task private variables
 const int id = get_task_index(arg);
@@ -59,7 +60,6 @@ const int id = get_task_index(arg);
 		cur_req = request_access[ship_id];
 		pthread_mutex_unlock(&mutex_rr);
 
-		m = ship_id;
 		if (active)
 		{
 			move = (check_forward(x_cur, y_cur, g_cur)) ? false: true;
@@ -181,7 +181,8 @@ const int id = get_task_index(arg);
 						active = false;
 					}
 				}
-			}
+			}	
+
 			pthread_mutex_lock(&mutex_fleet);
 			fleet[ship_id].active = active;
 			fleet[ship_id].parking = is_parked;
@@ -198,8 +199,9 @@ const int id = get_task_index(arg);
 			printf("%d) deadline missed! ship\n", id);
 		}
 		wait_for_activation(id);
-
 	}
+
+
 	return NULL;
  }
 
@@ -273,8 +275,10 @@ j = (YSHIP / 2);
 	{
 		alpha = (alpha >= 2 * M_PI) ? M_PI : alpha + 0.2; 
 		x = x_cur + j * cos(alpha);
-		y = y_cur + j * sin(alpha) + (YSHIP / 2) ;
+		y = y_cur + j * sin(alpha) + (YSHIP / 2);
+		pthread_mutex_lock(&mutex_sea);
 		color = getpixel(sea, x, y);
+		pthread_mutex_unlock(&mutex_sea);
 
 		if (color != SEA_COLOR && color != -1)
 		{
@@ -301,7 +305,9 @@ int color;
 	{
 		x = x_cur + j * cos(g_cur);
 		y = y_cur + j * sin(g_cur) + (YSHIP / 2 );
+		pthread_mutex_lock(&mutex_sea);
 		color = getpixel(sea, x, y);
+		pthread_mutex_unlock(&mutex_sea);
 		if (color != SEA_COLOR && color != -1)
 		{
 
