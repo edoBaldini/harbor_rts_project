@@ -112,7 +112,7 @@ const int id = get_task_index(arg);
 		if (scan == KEY_ENTER && time_passed >= 0)
 		{
 			clock_gettime(CLOCK_MONOTONIC, &w_time);
-			time_add_ms(&w_time, 200);
+			time_add_ms(&w_time, 2000);
 
 			init_ship();
 		}

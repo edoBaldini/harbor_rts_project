@@ -10,30 +10,6 @@ float x_prev, y_prev;
 int t, w;
 float vel;
 
-float distance_vector (float x1, float y1, float x2, float y2)
-{
-	return sqrtf(((x1 - x2) * (x1 - x2)) + ((y1 - y2) * (y1 - y2)));
-}
-
-void update_vel(int color)
-{
-	if (color == makecol(255, 0, 0)) 
-	{
-		vel += (1 - powf(M_E,(0.0005 * w)));
-		w++;
-		t = 0;
-	} 
-	else 
-	{
-		vel -=(1 - powf(M_E,(0.0005 * t)));
-		w = 0;	
-		t ++;
-	}
-	
-	vel = (vel < MIN_VEL)? MIN_VEL: vel;	
-	vel = (vel > MAX_VEL)? MAX_VEL: vel;
-}
-
 void * ship_task(void * arg)
 {
 
@@ -128,6 +104,13 @@ const int id = get_task_index(arg);
 					update_vel(color);
 					i = follow_track_frw(ship_id, i, mytrace, last_index);
 				}
+				else
+				{
+					color = getpixel(cur_trace, mytrace[i].x, mytrace[i].y);
+					update_vel(color);
+					i = follow_track_frw(ship_id, i, mytrace, i);
+				}
+
 
 			}
 
@@ -395,14 +378,17 @@ int follow_track_frw(int id, int i, pair mytrace[X_PORT * Y_PORT],
 
 	pthread_mutex_lock(&mutex_fleet);
 
-	d_obj = distance_vector(fleet[id].x, fleet[id].y, mytrace[last_index].x, mytrace[last_index].y + YSHIP);
+	d_obj = distance_vector(fleet[id].x, fleet[id].y, mytrace[last_index].x, 
+												mytrace[last_index].y + YSHIP);
 	vel = ((d_obj / 2) * p < vel) ? (d_obj / 2) * p : vel;
 	des = vel*PERIOD;
 	acc = distance_vector(fleet[id].x, fleet[id].y, mytrace[i].x, mytrace[i].y);
 
-	while (des > acc){
+	while (des > acc)
+	{
 		i += 1;
-		acc += distance_vector(fleet[id].x, fleet[id].y, mytrace[i].x, mytrace[i].y);
+		acc += distance_vector(fleet[id].x, fleet[id].y, mytrace[i].x, 
+																mytrace[i].y);
 	}
 
 	index = (i > last_index) ? last_index: i;
@@ -461,4 +447,28 @@ float aux = 1000 / PERIOD;
 		}
 		else return true;
 	}
+}
+
+float distance_vector (float x1, float y1, float x2, float y2)
+{
+	return sqrtf(((x1 - x2) * (x1 - x2)) + ((y1 - y2) * (y1 - y2)));
+}
+
+void update_vel(int color)
+{
+	if (color == makecol(255, 0, 0)) 
+	{
+		vel += (1 - powf(M_E,(0.0005 * w)));
+		w++;
+		t = 0;
+	} 
+	else 
+	{
+		vel -=(1 - powf(M_E,(0.0005 * t)));
+		w = 0;	
+		t ++;
+	}
+	
+	vel = (vel < MIN_VEL)? MIN_VEL: vel;	
+	vel = (vel > MAX_VEL)? MAX_VEL: vel;
 }
