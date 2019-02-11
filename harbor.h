@@ -26,7 +26,7 @@
 //------------------------------------------------------------------------------
 #define XSHIP			18			// width dimension of the ship  
 #define YSHIP			54			// height dimension of the ship
-#define MIN_P_TIME		50000		// min ship parking time, in ms
+#define MIN_P_TIME		1000		// min ship parking time, in ms
 #define	MAX_P_TIME		50000		// max ship parking time, in s
 
 //-----------------------------------------------------------------------------

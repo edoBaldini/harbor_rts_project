@@ -199,7 +199,7 @@ const int id = get_task_index(arg);
 				if (y_cur < mytrace[0].y)
 					rotate90_ship(ship_id, x_cur,Y_PLACE, mytrace[0].y + YSHIP);
 
-				else if (x_cur > EPSILON && x_cur < PORT_BMP_W - EPSILON)
+				else if (x_cur > EPSILON + YSHIP && x_cur < PORT_BMP_W - EPSILON - YSHIP)
 				{
 					color = getpixel(cur_trace, mytrace[i].x, mytrace[i].y);
 					update_vel(color);
@@ -211,7 +211,7 @@ const int id = get_task_index(arg);
 					cur_req = -1;
 				}
 
-				if (x_cur <= EPSILON || x_cur >= PORT_BMP_W - EPSILON)
+				if (x_cur <= EPSILON + YSHIP|| x_cur >= PORT_BMP_W - EPSILON - YSHIP)
 				{
 					termination = exit_ship(ship_id, x_cur);
 					if (termination)
@@ -416,7 +416,7 @@ int follow_track_frw(int id, int i, pair mytrace[X_PORT * Y_PORT],
 
 void rotate90_ship(int id, float x_cur, int y1, int y2)
 {
-float aux = 5000 / PERIOD;
+float aux = 10000 / PERIOD;
 	
 	if (x_cur > X_PORT)
 	{
