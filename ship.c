@@ -4,11 +4,34 @@
 #include <stdio.h>
 #include "ptask.h"
 
+#define MIN_VEL			1		// minimum speed
+#define	MAX_VEL			3		// maximum speed
 float x_prev, y_prev;
+int t, w;
+float vel;
 
 float distance_vector (float x1, float y1, float x2, float y2)
 {
 	return sqrtf(((x1 - x2) * (x1 - x2)) + ((y1 - y2) * (y1 - y2)));
+}
+
+void update_vel(int color)
+{
+	if (color == makecol(255, 0, 0)) 
+	{
+		vel += (1 - powf(M_E,(0.0005 * w)));
+		w++;
+		t = 0;
+	} 
+	else 
+	{
+		vel -=(1 - powf(M_E,(0.0005 * t)));
+		w = 0;	
+		t ++;
+	}
+	
+	vel = (vel < MIN_VEL)? MIN_VEL: vel;	
+	vel = (vel > MAX_VEL)? MAX_VEL: vel;
 }
 
 void * ship_task(void * arg)
@@ -19,6 +42,7 @@ int ship_id;
 int last_index;
 int cur_req;
 int time_wakeup;
+int color;
 bool mytrace_computed;
 bool first_step, second_step, third_step, fourth_step;
 bool cur_repl;
@@ -90,17 +114,19 @@ const int id = get_task_index(arg);
 					cur_repl = false;
 					cur_req = Y_PLACE;
 					i = 0;
+					w = 0;
+					t = 0;
+					vel = 0;
 					mytrace_computed = false;
 					second_step = true;
 					first_step = false;
 				}
 
-				else //if (move)
+				else if (move)
 				{
-					follow_track_frw(ship_id, i, mytrace, last_index);
-					if (i < last_index -1)
-						i += 1;
-					else i = i;
+					color = getpixel(cur_trace, mytrace[i].x, mytrace[i].y);
+					update_vel(color);
+					i = follow_track_frw(ship_id, i, mytrace, last_index, vel);
 				}
 
 			}
@@ -109,7 +135,6 @@ const int id = get_task_index(arg);
 			{
 				if (!mytrace_computed)
 				{
-
 					last_index = make_array_trace(cur_trace, mytrace, 
 													ship_id, is_odd, cur_req);
 					mytrace_computed = true;
@@ -144,16 +169,20 @@ const int id = get_task_index(arg);
 							cur_req = Y_EXIT;
 							wait = false;
 							mytrace_computed = false;
+							t = 0;
+							w = 0;
+							vel = 0;
 							second_step = false;
 							third_step = true;
 						}
 					}
 				}
 
-				else //if(move)
+				else
 				{
-					follow_track_frw(ship_id, i, mytrace, last_index);
-					i++;
+					color = getpixel(cur_trace, mytrace[i].x, mytrace[i].y);
+					update_vel(color);
+					i = follow_track_frw(ship_id, i, mytrace, last_index, vel);
 				}
 
 			}
@@ -170,10 +199,11 @@ const int id = get_task_index(arg);
 				if (y_cur < mytrace[0].y)
 					rotate90_ship(ship_id, x_cur,Y_PLACE, mytrace[0].y + YSHIP);
 
-				else
+				else if (x_cur > EPSILON && x_cur < PORT_BMP_W - EPSILON)
 				{
-					follow_track_frw(ship_id, i, mytrace, last_index);
-					i++;
+					color = getpixel(cur_trace, mytrace[i].x, mytrace[i].y);
+					update_vel(color);
+					i = follow_track_frw(ship_id, i, mytrace, last_index, vel);
 				}
 
 				if (check_position(y_cur, Y_PORT - XSHIP) && cur_req == Y_EXIT)
@@ -191,6 +221,9 @@ const int id = get_task_index(arg);
 						cur_repl = false;
 						first_step = true;
 						third_step = false;
+						t = 0;
+						w = 0;
+						vel = 0;
 						active = false;
 					}
 				}
@@ -261,7 +294,7 @@ for (j = PORT_BMP_H; j > 0; --j)
 			for (i = 0; i < PORT_BMP_W; ++i)
 			{
 				int color = getpixel(t, i, j);
-				if (color == 0)
+				if (color == 0 || color == (makecol(255,0,0)))
 				{
 					trace[index] = make_pair(i,j);
 					index ++;
@@ -314,7 +347,7 @@ bool check_forward(float x_cur, float y_cur, float g_cur)
 float x, y, j;
 int color;
 
-	for (j = (YSHIP/2); j < 90; ++j )
+	for (j = (YSHIP/2) + 2; j < 90; ++j )
 	{
 		x = x_cur + j * cos(g_cur);
 		y = y_cur + j * sin(g_cur) + (YSHIP / 2 );
@@ -323,7 +356,6 @@ int color;
 		pthread_mutex_unlock(&mutex_sea);
 		if (color != SEA_COLOR && color != -1)
 		{
-
 			return true; 		
 		}
 		else if (check_straight(x_cur, y_cur, g_cur))
@@ -345,27 +377,41 @@ bool check_position(float y_ship, int y)
 void grade_filter(int id, int i,pair mytrace[X_PORT * Y_PORT])
 {
 float p = powf(M_E,(-0.115129 * PERIOD));
-float grade = p * (degree_rect(fleet[id].x, fleet[id].y, mytrace[i + 5].x,
-						 mytrace[i + 5].y)) + (1 - p) * (fleet[id].traj_grade);
+float grade = p * (degree_rect(fleet[id].x, fleet[id].y, mytrace[i].x,
+						 mytrace[i].y)) + (1 - p) * (fleet[id].traj_grade);
 fleet[id].traj_grade = grade;
 
 }
 
 
-void follow_track_frw(int id, int i, pair mytrace[X_PORT * Y_PORT], 
-																int last_index)
+int follow_track_frw(int id, int i, pair mytrace[X_PORT * Y_PORT], 
+																int last_index, float vel)
 {
-	if(i <= last_index)
-	{
-		pthread_mutex_lock(&mutex_fleet);
-		float p = 0.06;//powf(M_E,(-0.115129 * PERIOD)); //COSÌ ACCELERA POTRESTI DARE VALORI DIVERSI A P IN MODO DA FARE ACCELERARE/DECELLERARE LA NAVE A SECONDA DELLA SITUAZIONE, CON 1 FAI IL MOVIMENTO NORMALE PER ANDARE VELOCE DOVRESTI METTERE 2 MA NON È MOLTO UTILE ANDARE PIÙ VELOCE DI 1
-		x_prev = fleet[id].x;
-		y_prev = fleet[id].y;
-		fleet[id].x = (p * (mytrace[i].x ) + (1 - p) * (fleet[id].x));//fabs(mytrace[i].x - fleet[id].x);
-		fleet[id].y =  p * (mytrace[i].y ) + (1 - p) * (fleet[id].y); //fabs(mytrace[i].y - fleet[id].y);
-		grade_filter(id, i, mytrace);
-		pthread_mutex_unlock(&mutex_fleet);
+	float p = 0.03;
+	float des;
+	float acc;
+	float d_obj;
+	int index;
+
+	pthread_mutex_lock(&mutex_fleet);
+
+	d_obj = distance_vector(fleet[id].x, fleet[id].y, mytrace[last_index].x, mytrace[last_index].y + YSHIP);
+	vel = ((d_obj / 2) * p < vel) ? (d_obj / 2) * p : vel;
+	des = vel*PERIOD;
+	acc = distance_vector(fleet[id].x, fleet[id].y, mytrace[i].x, mytrace[i].y);
+
+	while (des > acc){
+		i += 1;
+		acc += distance_vector(fleet[id].x, fleet[id].y, mytrace[i].x, mytrace[i].y);
 	}
+
+	index = (i > last_index) ? last_index: i;
+	fleet[id].x = p * (mytrace[index].x ) + (1 - p) * (fleet[id].x);
+	fleet[id].y = p * (mytrace[index].y ) + (1 - p) * (fleet[id].y);
+	grade_filter(id, index, mytrace);
+
+	pthread_mutex_unlock(&mutex_fleet);
+	return index;
 }
 
 void rotate90_ship(int id, float x_cur, int y1, int y2)
@@ -397,6 +443,7 @@ float aux = 1000 / PERIOD;
 		{
 			pthread_mutex_lock(&mutex_fleet);
 			fleet[id].x -= YSHIP / aux;
+			fleet[id].traj_grade = M_PI;
 			pthread_mutex_unlock(&mutex_fleet);
 
 			return false;
@@ -408,6 +455,7 @@ float aux = 1000 / PERIOD;
 		{	
 			pthread_mutex_lock(&mutex_fleet);
 			fleet[id].x += YSHIP/ aux;
+			fleet[id].traj_grade = 2 * M_PI;
 			pthread_mutex_unlock(&mutex_fleet);
 			return false;
 		}

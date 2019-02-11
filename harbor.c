@@ -398,7 +398,7 @@ void init(void)
 	circle(radar, R_BMP_W / 2, R_BMP_H / 2, R_BMP_H / 2, makecol(255, 255, 255));
 	fill_places();
 
-	enter_trace[0] = load_bitmap("e1.bmp", NULL);
+	enter_trace[0] = load_bitmap("e1_c.bmp", NULL);
 	enter_trace[1] = load_bitmap("e2.bmp", NULL);
 	enter_trace[2] = load_bitmap("e3.bmp", NULL);
 	
