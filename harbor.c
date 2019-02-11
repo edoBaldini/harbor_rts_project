@@ -429,6 +429,7 @@ bool active;
 		fleet[ships_activated].boat = create_bitmap(XSHIP, YSHIP);
 		fleet[ships_activated].boat = load_bitmap("ship_c.bmp", NULL);
 		fleet[ships_activated].parking = false;
+		fleet[ships_activated].traj_grade = 3 * M_PI / 2;
 		mark_label(fleet[ships_activated].boat);
 		fleet[ships_activated].x = 0.0; 
 		fleet[ships_activated].y = 0.0; 

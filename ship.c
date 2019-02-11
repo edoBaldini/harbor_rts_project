@@ -4,6 +4,13 @@
 #include <stdio.h>
 #include "ptask.h"
 
+float x_prev, y_prev;
+
+float distance_vector (float x1, float y1, float x2, float y2)
+{
+	return sqrtf(((x1 - x2) * (x1 - x2)) + ((y1 - y2) * (y1 - y2)));
+}
+
 void * ship_task(void * arg)
 {
 
@@ -63,7 +70,6 @@ const int id = get_task_index(arg);
 		if (active)
 		{
 			move = (check_forward(x_cur, y_cur, g_cur)) ? false: true;
-			
 			if (first_step)
 			{	
 				if (!mytrace_computed)
@@ -72,6 +78,11 @@ const int id = get_task_index(arg);
 													ship_id, is_odd, cur_req);
 					mytrace_computed = true;
 					i = 0;
+
+					pthread_mutex_lock(&mutex_fleet);
+					fleet[ship_id].x = mytrace[i].x;
+					fleet[ship_id].y = mytrace[i].y;
+					pthread_mutex_unlock(&mutex_fleet);
 				}
 
 				if(check_position(y_cur, Y_PORT))
@@ -84,10 +95,12 @@ const int id = get_task_index(arg);
 					first_step = false;
 				}
 
-				else if (move)
+				else //if (move)
 				{
 					follow_track_frw(ship_id, i, mytrace, last_index);
-					i++;
+					if (i < last_index -1)
+						i += 1;
+					else i = i;
 				}
 
 			}
@@ -329,13 +342,11 @@ bool check_position(float y_ship, int y)
 }
 
 
-void grade_filter(int i, int id,pair mytrace[X_PORT * Y_PORT])
+void grade_filter(int id, int i,pair mytrace[X_PORT * Y_PORT])
 {
 float p = powf(M_E,(-0.115129 * PERIOD));
-//float p = 0.1;
-
-float grade = p*(degree_rect(fleet[id].x, fleet[id].y, mytrace[i + 5].x, mytrace[i + 5].y)) + (1 - p)*(fleet[id].traj_grade);
-
+float grade = p * (degree_rect(fleet[id].x, fleet[id].y, mytrace[i + 5].x,
+						 mytrace[i + 5].y)) + (1 - p) * (fleet[id].traj_grade);
 fleet[id].traj_grade = grade;
 
 }
@@ -347,15 +358,12 @@ void follow_track_frw(int id, int i, pair mytrace[X_PORT * Y_PORT],
 	if(i <= last_index)
 	{
 		pthread_mutex_lock(&mutex_fleet);
-		fleet[id].x = mytrace[i].x;
-		fleet[id].y = mytrace[i].y;
-
-		grade_filter(i, id, mytrace);
-		/*if (last_index > i + 60)
-			fleet[id].traj_grade = degree_rect(fleet[id].x, fleet[id].y, 
-						mytrace[i + 20].x, mytrace[i + 20].y);*/
-		//else 
-		//	fleet[id].traj_grade = fleet[id].traj_grade;
+		float p = 0.06;//powf(M_E,(-0.115129 * PERIOD)); //COSÌ ACCELERA POTRESTI DARE VALORI DIVERSI A P IN MODO DA FARE ACCELERARE/DECELLERARE LA NAVE A SECONDA DELLA SITUAZIONE, CON 1 FAI IL MOVIMENTO NORMALE PER ANDARE VELOCE DOVRESTI METTERE 2 MA NON È MOLTO UTILE ANDARE PIÙ VELOCE DI 1
+		x_prev = fleet[id].x;
+		y_prev = fleet[id].y;
+		fleet[id].x = (p * (mytrace[i].x ) + (1 - p) * (fleet[id].x));//fabs(mytrace[i].x - fleet[id].x);
+		fleet[id].y =  p * (mytrace[i].y ) + (1 - p) * (fleet[id].y); //fabs(mytrace[i].y - fleet[id].y);
+		grade_filter(id, i, mytrace);
 		pthread_mutex_unlock(&mutex_fleet);
 	}
 }

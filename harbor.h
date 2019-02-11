@@ -3,7 +3,7 @@
 #include <allegro.h>
 
 #define XWIN			1400		// width monitor
-#define YWIN			700			// height monitor
+#define YWIN			900			// height monitor
 #define PERIOD			20			// in ms
 #define DLINE			25			// in ms
 #define PRIO			10			// priority level
