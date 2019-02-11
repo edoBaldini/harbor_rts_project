@@ -112,7 +112,7 @@ const int id = get_task_index(arg);
 		if (scan == KEY_ENTER && time_passed >= 0)
 		{
 			clock_gettime(CLOCK_MONOTONIC, &w_time);
-			time_add_ms(&w_time, 2000);
+			time_add_ms(&w_time, 200);
 
 			init_ship();
 		}
@@ -399,7 +399,7 @@ void init(void)
 	fill_places();
 
 	enter_trace[0] = load_bitmap("e1_c.bmp", NULL);
-	enter_trace[1] = load_bitmap("e2.bmp", NULL);
+	enter_trace[1] = load_bitmap("e2_c.bmp", NULL);
 	enter_trace[2] = load_bitmap("e3.bmp", NULL);
 	
 	pthread_mutex_init(&mutex_rr, NULL);
@@ -629,16 +629,16 @@ int i, j;
 		places[j].ship_id = -1;
 		places[j].available = true;
 	}
-	places[7].enter_trace = load_bitmap("w1.bmp", NULL);
+	places[7].enter_trace = load_bitmap("w1_c.bmp", NULL);
 	places[7].exit_trace = load_bitmap("x1.bmp", NULL);
 
-	places[6].enter_trace = load_bitmap("w2.bmp", NULL);
+	places[6].enter_trace = load_bitmap("w2_c.bmp", NULL);
 	places[6].exit_trace = load_bitmap("x2.bmp", NULL);
 
-	places[5].enter_trace = load_bitmap("w3.bmp", NULL);
+	places[5].enter_trace = load_bitmap("w3_c.bmp", NULL);
 	places[5].exit_trace = load_bitmap("x3.bmp", NULL);
 
-	places[4].enter_trace = load_bitmap("w4.bmp", NULL);
+	places[4].enter_trace = load_bitmap("w4_c.bmp", NULL);
 	places[4].exit_trace = load_bitmap("x4.bmp", NULL);
 
 	for (i = 0; i < 4; ++i)

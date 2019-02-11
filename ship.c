@@ -126,7 +126,7 @@ const int id = get_task_index(arg);
 				{
 					color = getpixel(cur_trace, mytrace[i].x, mytrace[i].y);
 					update_vel(color);
-					i = follow_track_frw(ship_id, i, mytrace, last_index, vel);
+					i = follow_track_frw(ship_id, i, mytrace, last_index);
 				}
 
 			}
@@ -182,7 +182,7 @@ const int id = get_task_index(arg);
 				{
 					color = getpixel(cur_trace, mytrace[i].x, mytrace[i].y);
 					update_vel(color);
-					i = follow_track_frw(ship_id, i, mytrace, last_index, vel);
+					i = follow_track_frw(ship_id, i, mytrace, last_index);
 				}
 
 			}
@@ -203,7 +203,7 @@ const int id = get_task_index(arg);
 				{
 					color = getpixel(cur_trace, mytrace[i].x, mytrace[i].y);
 					update_vel(color);
-					i = follow_track_frw(ship_id, i, mytrace, last_index, vel);
+					i = follow_track_frw(ship_id, i, mytrace, last_index);
 				}
 
 				if (check_position(y_cur, Y_PORT - XSHIP) && cur_req == Y_EXIT)
@@ -282,7 +282,7 @@ for (j = PORT_BMP_H; j > 0; --j)
 			for (i = PORT_BMP_W; i > 0 ; --i)
 			{
 				color = getpixel(t, i, j);
-				if (color == 0)
+				if (color == 0 || color == makecol(255, 0, 0))
 				{
 					trace[index] = make_pair(i,j);
 					index ++;
@@ -374,7 +374,7 @@ bool check_position(float y_ship, int y)
 }
 
 
-void grade_filter(int id, int i,pair mytrace[X_PORT * Y_PORT])
+void grade_filter(int id, int i, pair mytrace[X_PORT * Y_PORT])
 {
 float p = powf(M_E,(-0.115129 * PERIOD));
 float grade = p * (degree_rect(fleet[id].x, fleet[id].y, mytrace[i].x,
@@ -385,7 +385,7 @@ fleet[id].traj_grade = grade;
 
 
 int follow_track_frw(int id, int i, pair mytrace[X_PORT * Y_PORT], 
-																int last_index, float vel)
+																int last_index)
 {
 	float p = 0.03;
 	float des;
