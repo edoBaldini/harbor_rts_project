@@ -129,7 +129,6 @@ const int id = get_task_index(arg);
 			end = true;
 		}
 
-		//terminate(ships_terminated);
 		if (deadline_miss(id))
 		{   
 			printf("%d) deadline missed! radar\n", id);
@@ -291,7 +290,7 @@ void * display(void *arg)
 BITMAP * port_bmp;
 BITMAP * back_sea_bmp;
 BITMAP * ship_cur;
-int i;
+int i, e1, e2, e3;
 float x_cur, y_cur, g_cur;
 
 	back_sea_bmp = create_bitmap(PORT_BMP_W, PORT_BMP_H);
@@ -329,7 +328,12 @@ float x_cur, y_cur, g_cur;
 			pthread_mutex_lock(&mutex_route);
 			for (i = 0; i < ships_activated; ++i)
 			{
+				e1 = getpixel(screen, 0, 806 + (YSHIP / 2));
+				e2 = getpixel(screen, 899, 805 + (YSHIP / 2));
+				e3 = getpixel(screen, 450, 899);
+				if (e1 || e2 || e3)
 				draw_sprite(back_sea_bmp, routes[i].trace, 0, YSHIP / 2);
+
 			}
 			pthread_mutex_unlock(&mutex_route);
 
@@ -337,7 +341,7 @@ float x_cur, y_cur, g_cur;
 //	USEFUL TO VISUALIZE CHECK_FWD()
 		/*for (int k = 0; k < ships_activated; ++k){
 			float alpha = M_PI;
-			for (int j = (YSHIP / 2); j < 70; j++)
+			for (int j = (YSHIP / 2); j < 90; j++)
 			{
 				alpha += 0.2;
 				alpha = (alpha >= 2 * M_PI) ? M_PI : alpha;
@@ -420,7 +424,7 @@ void init(void)
 	pthread_mutex_init(&mutex_radar, NULL);
 
 	task_create(display, PERIOD	, DLINE, PRIO);
-	task_create(radar_task, 10, 6, PRIO);
+	task_create(radar_task, PERIOD, DLINE, PRIO);
 	task_create(controller_task, PERIOD, DLINE, PRIO);
 	task_create(user_task, PERIOD, DLINE, PRIO);
 
@@ -500,13 +504,8 @@ int i;
 	}
 
 	init();
-	
-	for (i = 0; i < AUX_THREAD; ++i)
-	{
-		join_spec_thread(i);
 
-	}
-	
+	wait_tasks();
 	allegro_exit();
 	return 0;
 }

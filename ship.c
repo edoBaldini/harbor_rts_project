@@ -5,7 +5,7 @@
 #include "ptask.h"
 
 #define MIN_VEL			0.5		// minimum speed
-#define	MAX_VEL			6		// maximum speed
+#define	MAX_VEL			2		// maximum speed
 
 void * ship_task(void * arg)
 {
@@ -126,8 +126,8 @@ const int id = get_task_index(arg);
 				{
 					t = 0;
 					w += 1;
-					vel += 2 * (1 - powf(M_E,(0.0005 * w)));
-					vel = (vel < MIN_VEL) ? MIN_VEL : vel;
+					vel += 60 * (1 - powf(M_E,(0.0005 * w)));
+					//vel = (vel < MIN_VEL) ? MIN_VEL : vel;
 					i = follow_track_frw(ship_id, i, mytrace, i, move, vel);
 
 				}
