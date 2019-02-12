@@ -108,7 +108,7 @@ void wait_for_activation(int i)
 {
     clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &(tp[i].at), NULL);
     time_add_ms(&(tp[i].at), tp[i].period);
-    time_add_ms(&(tp[i].dl), tp[i].deadline);
+    time_add_ms(&(tp[i].dl), tp[i].period);
 }
 
 void wait_tasks()

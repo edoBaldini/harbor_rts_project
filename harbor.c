@@ -24,6 +24,7 @@ pthread_mutex_t mutex_p;
 pthread_mutex_t mutex_fleet;
 pthread_mutex_t mutex_route;
 pthread_mutex_t mutex_sea;
+pthread_mutex_t mutex_radar;
 
 
 void * user_task(void * arg)
@@ -112,7 +113,7 @@ const int id = get_task_index(arg);
 		if (scan == KEY_ENTER && time_passed >= 0)
 		{
 			clock_gettime(CLOCK_MONOTONIC, &w_time);
-			time_add_ms(&w_time, 2000);
+			time_add_ms(&w_time, 1500);
 
 			init_ship();
 		}
@@ -170,22 +171,23 @@ const int id = get_task_index(arg);
 
 				if (found)
 				{
+					pthread_mutex_lock(&mutex_radar);
 					putpixel(radar, (x / 2), (y / 2), r_col);
+					pthread_mutex_unlock(&mutex_radar);
 			   }
 			}
 		}
 //from the formula L = pi * r *a / 180 I can guarantee that, the circumference
 //arc len is less than the width label in this way the ships will be always seen
-		a += 1; 
+		a += 2; 
 		if (a == 360.0)
 		{
 			a = 0.0;
+			pthread_mutex_lock(&mutex_radar);
 			clear_bitmap(radar);
-			circle(radar, R_BMP_W / 2, R_BMP_H / 2, R_BMP_H / 2, r_col);
+			pthread_mutex_unlock(&mutex_radar);
 		}
 		
-		blit(radar, screen, 0, 0,910, 0, radar->w, radar->h);
-
 		if (deadline_miss(id))
 		{   
 			printf("%d) deadline missed! radar\n", id);
@@ -340,7 +342,10 @@ float x_cur, y_cur, g_cur;
 				alpha += 0.2;
 				alpha = (alpha >= 2 * M_PI) ? M_PI : alpha;
 				float x = fleet[k].x + j * cos(fleet[k].traj_grade);
-				float y =  fleet[k].y + j * sin(fleet[k].traj_grade) + (YSHIP / 2);
+				float y = fleet[k].y + j * sin(fleet[k].traj_grade) + (YSHIP / 2);
+				putpixel(back_sea_bmp, x, y, 0);
+				putpixel(back_sea_bmp, x + (XSHIP / 2), y - (XSHIP / 2), 0);
+
  				putpixel(back_sea_bmp, x, y, 0);
  				float x1 = fleet[k].x + j * cos(alpha);
 				float y1 =  fleet[k].y + j * sin(alpha) + (YSHIP / 2);
@@ -350,6 +355,11 @@ float x_cur, y_cur, g_cur;
 
 		putpixel(back_sea_bmp, X_PORT, Y_PORT, makecol(255,0,255));
 		blit(back_sea_bmp, screen, 0,0,0,0,back_sea_bmp->w, back_sea_bmp->h); 
+
+		pthread_mutex_lock(&mutex_radar);
+		circle(radar, R_BMP_W / 2, R_BMP_H / 2, R_BMP_H / 2, makecol(255,255,255));
+		blit(radar, screen, 0, 0,910, 0, radar->w, radar->h);
+		pthread_mutex_unlock(&mutex_radar);
 
 		if (deadline_miss(id))
 		{   
@@ -407,9 +417,10 @@ void init(void)
 	pthread_mutex_init(&mutex_fleet, NULL);
 	pthread_mutex_init(&mutex_route, NULL);
 	pthread_mutex_init(&mutex_sea, NULL);
+	pthread_mutex_init(&mutex_radar, NULL);
 
 	task_create(display, PERIOD	, DLINE, PRIO);
-	task_create(radar_task, 3, 6, PRIO);
+	task_create(radar_task, 10, 6, PRIO);
 	task_create(controller_task, PERIOD, DLINE, PRIO);
 	task_create(user_task, PERIOD, DLINE, PRIO);
 

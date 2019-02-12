@@ -4,31 +4,30 @@
 #include <stdio.h>
 #include "ptask.h"
 
-#define MIN_VEL			1		// minimum speed
-#define	MAX_VEL			3		// maximum speed
-float x_prev, y_prev;
-int t, w;
-float vel;
+#define MIN_VEL			0.5		// minimum speed
+#define	MAX_VEL			6		// maximum speed
 
 void * ship_task(void * arg)
 {
-
 int i;
 int ship_id;
 int last_index;
 int cur_req;
 int time_wakeup;
 int color;
+int t, w;
+int red;
 bool mytrace_computed;
 bool first_step, second_step, third_step, fourth_step;
 bool cur_repl;
-bool move = true;
-bool wait = false;
-bool termination = false;
+bool wait;
+bool termination;
 bool active;
 bool is_parked;
 bool is_odd;
+bool move;
 float x_cur, y_cur, g_cur;
+float vel;
 
 BITMAP * cur_trace;
 pair mytrace[X_PORT * Y_PORT];
@@ -43,7 +42,10 @@ const int id = get_task_index(arg);
 	second_step 		= false;
 	third_step 			= false;
 	mytrace_computed 	= false;
+	termination			= false;
+	wait 				= false;
 	i 					= 0;
+	red					= makecol(255, 0,0);
 
 	while (!end) 
 	{
@@ -70,6 +72,7 @@ const int id = get_task_index(arg);
 		if (active)
 		{
 			move = (check_forward(x_cur, y_cur, g_cur)) ? false: true;
+
 			if (first_step)
 			{	
 				if (!mytrace_computed)
@@ -92,7 +95,7 @@ const int id = get_task_index(arg);
 					i = 0;
 					w = 0;
 					t = 0;
-					vel = 0;
+					vel = MIN_VEL;
 					mytrace_computed = false;
 					second_step = true;
 					first_step = false;
@@ -101,14 +104,32 @@ const int id = get_task_index(arg);
 				else if (move)
 				{
 					color = getpixel(cur_trace, mytrace[i].x, mytrace[i].y);
-					update_vel(color);
-					i = follow_track_frw(ship_id, i, mytrace, last_index);
+					
+					if (color == red)
+					{
+						t = 0;
+						w += 1;
+						vel += (1 - powf(M_E,(0.0005 * w)));
+						vel = (vel < MIN_VEL) ? MIN_VEL : vel;
+					}
+					else
+					{
+						t +=1;
+						w = 0;
+						vel -= (1 - powf(M_E,(0.0005 * t)));
+						vel = (vel > MAX_VEL) ? MAX_VEL : vel;
+
+					}
+					i = follow_track_frw(ship_id, i, mytrace, last_index, move, vel);
 				}
 				else
 				{
-					color = getpixel(cur_trace, mytrace[i].x, mytrace[i].y);
-					update_vel(color);
-					i = follow_track_frw(ship_id, i, mytrace, i);
+					t = 0;
+					w += 1;
+					vel += 2 * (1 - powf(M_E,(0.0005 * w)));
+					vel = (vel < MIN_VEL) ? MIN_VEL : vel;
+					i = follow_track_frw(ship_id, i, mytrace, i, move, vel);
+
 				}
 
 
@@ -154,7 +175,6 @@ const int id = get_task_index(arg);
 							mytrace_computed = false;
 							t = 0;
 							w = 0;
-							vel = 0;
 							second_step = false;
 							third_step = true;
 						}
@@ -163,9 +183,26 @@ const int id = get_task_index(arg);
 
 				else
 				{
+
 					color = getpixel(cur_trace, mytrace[i].x, mytrace[i].y);
-					update_vel(color);
-					i = follow_track_frw(ship_id, i, mytrace, last_index);
+					
+					if (color == red)
+					{
+						t = 0;
+						w += 1;
+						vel += (1 - powf(M_E,(0.0005 * w)));
+						vel = (vel < MIN_VEL) ? MIN_VEL : vel;
+					}
+					else
+					{
+						t +=1;
+						w = 0;
+						vel -= (1 - powf(M_E,(0.0005 * t)));
+						vel = (vel > MAX_VEL) ? MAX_VEL : vel;
+
+					}
+
+					i = follow_track_frw(ship_id, i, mytrace, last_index, true, vel);
 				}
 
 			}
@@ -185,8 +222,24 @@ const int id = get_task_index(arg);
 				else if (x_cur > EPSILON + YSHIP && x_cur < PORT_BMP_W - EPSILON - YSHIP)
 				{
 					color = getpixel(cur_trace, mytrace[i].x, mytrace[i].y);
-					update_vel(color);
-					i = follow_track_frw(ship_id, i, mytrace, last_index);
+					
+					if (color == red)
+					{
+						t = 0;
+						w += 1;
+						vel += (1 - powf(M_E,(0.0005 * w)));
+						vel = (vel < MIN_VEL) ? MIN_VEL : vel;
+					}
+					else
+					{
+						t +=1;
+						w = 0;
+						vel -= (1 - powf(M_E,(0.0005 * t)));
+						vel = (vel > MAX_VEL) ? MAX_VEL : vel;
+
+					}
+
+					i = follow_track_frw(ship_id, i, mytrace, last_index, true, vel);
 				}
 
 				if (check_position(y_cur, Y_PORT - XSHIP) && cur_req == Y_EXIT)
@@ -206,7 +259,6 @@ const int id = get_task_index(arg);
 						third_step = false;
 						t = 0;
 						w = 0;
-						vel = 0;
 						active = false;
 					}
 				}
@@ -290,7 +342,6 @@ for (j = PORT_BMP_H; j > 0; --j)
 	if (req == Y_EXIT)
 		reverse_array(trace, last_index);
 
-	//routes[id].x = trace[last_index].x;
 	return last_index;
 }
 
@@ -311,7 +362,7 @@ j = (YSHIP / 2);
 
 		if (color != SEA_COLOR && color != -1)
 		{
-			if (x < x_cur || x_cur > X_PORT)//&& y >= y_cur)
+			if (x < x_cur || x_cur > X_PORT)
 			{
 
 				return false;
@@ -328,16 +379,19 @@ j = (YSHIP / 2);
 bool check_forward(float x_cur, float y_cur, float g_cur)
 {
 float x, y, j;
-int color;
+int color1, color2;
 
 	for (j = (YSHIP/2) + 2; j < 90; ++j )
 	{
 		x = x_cur + j * cos(g_cur);
 		y = y_cur + j * sin(g_cur) + (YSHIP / 2 );
 		pthread_mutex_lock(&mutex_sea);
-		color = getpixel(sea, x, y);
+		color1 = getpixel(sea, x, y);
+		color2 = getpixel(sea, x + (XSHIP / 2) ,y - (XSHIP / 2));
 		pthread_mutex_unlock(&mutex_sea);
-		if (color != SEA_COLOR && color != -1)
+
+		if ((color1 != SEA_COLOR && color1 != -1) ||
+				color2 != SEA_COLOR && color2 != -1 )
 		{
 			return true; 		
 		}
@@ -368,7 +422,7 @@ fleet[id].traj_grade = grade;
 
 
 int follow_track_frw(int id, int i, pair mytrace[X_PORT * Y_PORT], 
-																int last_index)
+										int last_index, bool move, float vel)
 {
 	float p = 0.03;
 	float des;
@@ -394,9 +448,12 @@ int follow_track_frw(int id, int i, pair mytrace[X_PORT * Y_PORT],
 	index = (i > last_index) ? last_index: i;
 	fleet[id].x = p * (mytrace[index].x ) + (1 - p) * (fleet[id].x);
 	fleet[id].y = p * (mytrace[index].y ) + (1 - p) * (fleet[id].y);
-	grade_filter(id, index, mytrace);
+
+	if (move)
+		grade_filter(id, index, mytrace);
 
 	pthread_mutex_unlock(&mutex_fleet);
+	
 	return index;
 }
 
@@ -452,23 +509,4 @@ float aux = 1000 / PERIOD;
 float distance_vector (float x1, float y1, float x2, float y2)
 {
 	return sqrtf(((x1 - x2) * (x1 - x2)) + ((y1 - y2) * (y1 - y2)));
-}
-
-void update_vel(int color)
-{
-	if (color == makecol(255, 0, 0)) 
-	{
-		vel += (1 - powf(M_E,(0.0005 * w)));
-		w++;
-		t = 0;
-	} 
-	else 
-	{
-		vel -=(1 - powf(M_E,(0.0005 * t)));
-		w = 0;	
-		t ++;
-	}
-	
-	vel = (vel < MIN_VEL)? MIN_VEL: vel;	
-	vel = (vel > MAX_VEL)? MAX_VEL: vel;
 }

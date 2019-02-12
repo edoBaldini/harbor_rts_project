@@ -5,7 +5,7 @@
 #define XWIN			1400		// width monitor
 #define YWIN			900			// height monitor
 #define PERIOD			20			// in ms
-#define DLINE			25			// in ms
+#define DLINE			15			// in ms
 #define PRIO			10			// priority level
 #define AUX_THREAD 		4
 #define MAX_THREADS		15			
@@ -119,12 +119,10 @@ void reverse_array(pair trace[], int last_index);
 int make_array_trace(BITMAP * t, pair trace[], int id, bool odd, int req);
 bool check_forward(float x_cur, float y_cur, float g_cur);
 bool check_position(float y_ship, int y);
-int follow_track_frw(int id, int i, pair mytrace[], int last_index);
+int follow_track_frw(int id, int i, pair mytrace[], int last_index, bool move, float vel);
 void rotate90_ship(int id, float x_cur, int y1, int y2);
 bool exit_ship(int id, float x_cur);
 float distance_vector (float x1, float y1, float x2, float y2);
-void update_vel(int color);
-
 //------------------------------------------------------------------------------
 //	USER FUNCTIONS
 //------------------------------------------------------------------------------
