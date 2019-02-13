@@ -5,13 +5,13 @@
 #include "ptask.h"
 
 #define MIN_VEL			0.5		// minimum speed
-#define	MAX_VEL			2		// maximum speed
+#define	MAX_VEL			3		// maximum speed
 
 void * ship_task(void * arg)
 {
 int i;
 int ship_id;
-int last_index;
+int last_index, guard_index;
 int cur_req;
 int time_wakeup;
 int color;
@@ -81,22 +81,21 @@ const int id = get_task_index(arg);
 													ship_id, is_odd, cur_req);
 					mytrace_computed = true;
 					i = 0;
-
+					guard_index = find_index(mytrace, YGUARD_POS);
 					pthread_mutex_lock(&mutex_fleet);
 					fleet[ship_id].x = mytrace[i].x;
 					fleet[ship_id].y = mytrace[i].y;
 					pthread_mutex_unlock(&mutex_fleet);
 				}
 
-				if(check_position(y_cur, Y_PORT))
+				if(check_position(y_cur, YGUARD_POS))
 				{
 					cur_repl = false;
-					cur_req = Y_PLACE;
-					i = 0;
+					cur_req = Y_PORT;
+					i = guard_index;
 					w = 0;
 					t = 0;
 					vel = MIN_VEL;
-					mytrace_computed = false;
 					second_step = true;
 					first_step = false;
 				}
@@ -120,7 +119,7 @@ const int id = get_task_index(arg);
 						vel = (vel > MAX_VEL) ? MAX_VEL : vel;
 
 					}
-					i = follow_track_frw(ship_id, i, mytrace, last_index, move, vel);
+					i = follow_track_frw(ship_id, i, mytrace, guard_index, move, vel);
 				}
 				else
 				{
@@ -136,6 +135,44 @@ const int id = get_task_index(arg);
 			}
 
 			if (second_step && cur_repl)
+			{
+				if(check_position(y_cur, Y_PORT))
+				{
+					cur_repl = false;
+					cur_req = Y_PLACE;
+					i = 0;
+					mytrace_computed = false;
+					third_step = true;
+					second_step = false;
+					first_step = false;
+				}
+
+				else
+				{
+					color = getpixel(cur_trace, mytrace[i].x, mytrace[i].y);
+
+					if (color == red)
+					{
+						t = 0;
+						w += 1;
+						vel += (1 - powf(M_E,(0.0005 * w)));
+						vel = (vel < MIN_VEL) ? MIN_VEL : vel;
+					}
+					else
+					{
+						t +=1;
+						w = 0;
+						vel -= (1 - powf(M_E,(0.0005 * t)));
+						vel = (vel > MAX_VEL) ? MAX_VEL : vel;
+
+					}
+					i = follow_track_frw(ship_id, i, mytrace, last_index, true, vel);
+				}
+
+			
+			}
+
+			if (third_step && cur_repl)
 			{
 				if (!mytrace_computed)
 				{
@@ -175,8 +212,8 @@ const int id = get_task_index(arg);
 							mytrace_computed = false;
 							t = 0;
 							w = 0;
-							second_step = false;
-							third_step = true;
+							third_step = false;
+							fourth_step = true;
 						}
 					}
 				}
@@ -207,7 +244,7 @@ const int id = get_task_index(arg);
 
 			}
 
-			if (third_step && cur_repl)
+			if (fourth_step && cur_repl)
 			{
 				if (!mytrace_computed)
 				{
@@ -256,7 +293,7 @@ const int id = get_task_index(arg);
 						cur_req = YGUARD_POS;
 						cur_repl = false;
 						first_step = true;
-						third_step = false;
+						fourth_step = false;
 						t = 0;
 						w = 0;
 						active = false;
@@ -509,4 +546,14 @@ float aux = 1000 / PERIOD;
 float distance_vector (float x1, float y1, float x2, float y2)
 {
 	return sqrtf(((x1 - x2) * (x1 - x2)) + ((y1 - y2) * (y1 - y2)));
+}
+
+int find_index(pair mytrace[X_PORT * Y_PORT], int posix)
+{
+int i;
+	for (i = 0; i < PORT_BMP_W * PORT_BMP_H; ++i)
+	{
+		if (mytrace[i].y == posix)
+			return i;
+	}
 }

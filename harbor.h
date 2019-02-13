@@ -123,6 +123,7 @@ int follow_track_frw(int id, int i, pair mytrace[], int last_index, bool move, f
 void rotate90_ship(int id, float x_cur, int y1, int y2);
 bool exit_ship(int id, float x_cur);
 float distance_vector (float x1, float y1, float x2, float y2);
+int find_index(pair mytrace[X_PORT * Y_PORT], int posix);
 //------------------------------------------------------------------------------
 //	USER FUNCTIONS
 //------------------------------------------------------------------------------

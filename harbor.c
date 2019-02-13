@@ -219,7 +219,22 @@ const int id = get_task_index(arg);
 		cur_repl = reply_access[i];
 		cur_req = request_access[i];
 		pthread_mutex_unlock(&mutex_rr);
+		
+		if (cur_req == Y_PORT)
+		{
+			if (access_port)
+			{
+				printf("ship %d enters to the port\n", i);
+				pthread_mutex_lock(&mutex_route);
+				routes[i].x = X_PORT;
+				routes[i].y = Y_PORT;
+				pthread_mutex_unlock(&mutex_route);
+				cur_repl = true;
+				access_port = false;
 
+			}
+		}
+		
 		if (cur_req == Y_PLACE)
 		{
 			if (access_place && !enter_trace[i])
