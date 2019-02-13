@@ -424,7 +424,7 @@ void init(void)
 	pthread_mutex_init(&mutex_radar, NULL);
 
 	task_create(display, PERIOD	, DLINE, PRIO);
-	task_create(radar_task, PERIOD, DLINE, PRIO);
+	task_create(radar_task, 15, 10, PRIO);
 	task_create(controller_task, PERIOD, DLINE, PRIO);
 	task_create(user_task, PERIOD, DLINE, PRIO);
 
