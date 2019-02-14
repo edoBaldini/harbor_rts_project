@@ -12,8 +12,6 @@ int last_index, guard_index, place_index, port_index;
 int cur_req;
 int time_wakeup;
 int color;
-int t, w;
-int red;
 bool mytrace_computed;
 bool first_step, second_step, third_step, fourth_step;
 bool cur_repl;
@@ -23,8 +21,8 @@ bool active;
 bool is_parked;
 bool is_odd;
 bool move;
+bool c_end;
 float x_cur, y_cur, g_cur;
-float vel;
 
 BITMAP * cur_trace;
 pair mytrace[X_PORT * Y_PORT];
@@ -41,11 +39,14 @@ const int id = get_task_index(arg);
 	mytrace_computed 	= false;
 	termination			= false;
 	wait 				= false;
+	c_end				= false;
 	i 					= 0;
-	red					= makecol(255, 0,0);
-
-	while (!end) 
+	while (!c_end) 
 	{
+		pthread_mutex_lock(&mutex_end);
+		c_end = end;
+		pthread_mutex_unlock(&mutex_end);
+
 		pthread_mutex_lock(&mutex_fleet);
 		x_cur = fleet[ship_id].x;
 		y_cur = fleet[ship_id].y;
@@ -91,8 +92,6 @@ const int id = get_task_index(arg);
 					cur_repl = false;
 					cur_req = Y_PORT;
 					i = guard_index;
-					w = 0;
-					t = 0;
 					second_step = true;
 					first_step = false;
 				}
@@ -188,7 +187,6 @@ const int id = get_task_index(arg);
 					last_index = make_array_trace(cur_trace, mytrace,
 					 								ship_id, is_odd, cur_req);
 					mytrace_computed = true;
-					printf("y of exit %f\n", mytrace[last_index].y);
 					i = 0;
 				}
 				if (y_cur < mytrace[0].y)

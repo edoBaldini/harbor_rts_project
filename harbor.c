@@ -25,6 +25,8 @@ pthread_mutex_t mutex_fleet;
 pthread_mutex_t mutex_route;
 pthread_mutex_t mutex_sea;
 pthread_mutex_t mutex_radar;
+pthread_mutex_t mutex_end;
+pthread_mutex_t mutex_s_route;
 
 
 void * user_task(void * arg)
@@ -41,14 +43,18 @@ int r_x = PORT_BMP_W - l_x - delta - (half_num_parking - 1) * (offset + delta);
 bool is_parked = false;
 struct timespec now;
 struct timespec w_time;
-
+bool c_end = false;
 
 // Task private variables
 const int id = get_task_index(arg);
 	set_activation(id);
 
-	while (!end) 
+	while (!c_end) 
 	{
+		pthread_mutex_lock(&mutex_end);
+		c_end = end;
+		pthread_mutex_unlock(&mutex_end);
+
 		clock_gettime(CLOCK_MONOTONIC, &now);
 		time_passed = time_cmp(now, w_time);
 
@@ -95,8 +101,8 @@ const int id = get_task_index(arg);
 				if (ship_index >= 0 && is_parked)
 				{
 					pthread_mutex_lock(&mutex_fleet);
-					time_add_ms(&fleet[ship_index].p_time, 20);
-					printf("ship %d more 20ms, actual time %ld\n", ship_index, 
+					time_add_ms(&fleet[ship_index].p_time, 200);
+					printf("ship %d more 200ms, actual time %ld\n", ship_index, 
 											(fleet[ship_index].p_time).tv_sec);
 					pthread_mutex_unlock(&mutex_fleet);
 				}
@@ -120,13 +126,17 @@ const int id = get_task_index(arg);
 
 		if (scan == KEY_SPACE)
 		{
-
+			pthread_mutex_lock(&mutex_s_route);
 			show_routes = (show_routes) ? false : true;
+			pthread_mutex_unlock(&mutex_s_route);
 		}
 
 		if (scan == KEY_ESC)
 		{
+			pthread_mutex_lock(&mutex_end);
 			end = true;
+			pthread_mutex_unlock(&mutex_end);
+			c_end = true;
 		}
 
 		if (deadline_miss(id))
@@ -144,6 +154,7 @@ void * radar_task(void * arg)
 
 // Task private variables
 bool found;
+bool c_end = false;
 float a = 0.f;
 float alpha;
 int d = 0;
@@ -153,8 +164,12 @@ int r_col = makecol(255, 255, 255);
 const int id = get_task_index(arg);
 	set_activation(id);
 
-	while (!end) 
+	while (!c_end) 
 	{   
+		pthread_mutex_lock(&mutex_end);
+		c_end = end;
+		pthread_mutex_unlock(&mutex_end);
+
 		alpha = a * M_PI / 180.f;   // from degree to radiants
 		for (d = RMIN; d < RMAX; d += RSTEP)
 		{
@@ -208,13 +223,17 @@ bool access_port = true;
 bool access_place = true;
 bool enter_trace[MAX_SHIPS] = {false};
 bool exit_trace[MAX_SHIPS] = {false};
+bool c_end = false;
 bool cur_repl;
 const int id = get_task_index(arg);
 	set_activation(id);
 
-	while (!end) 
+	while (!c_end) 
 	{
-		
+		pthread_mutex_lock(&mutex_end);
+		c_end = end;
+		pthread_mutex_unlock(&mutex_end);
+
 		pthread_mutex_lock(&mutex_rr);
 		cur_repl = reply_access[i];
 		cur_req = request_access[i];
@@ -306,10 +325,12 @@ BITMAP * port_bmp;
 BITMAP * back_sea_bmp;
 BITMAP * ship_cur;
 BITMAP * routes_bmp;
-int i, e1, e2, e3, x1, x2, j;
+int i, e1, e2, e3;
 float x_cur, y_cur, g_cur;
 int counter = 0;
 bool parked[MAX_SHIPS] = {false};
+bool c_end = false;
+pair cur_fleet[MAX_SHIPS];
 
 	back_sea_bmp = create_bitmap(PORT_BMP_W, PORT_BMP_H);
 	routes_bmp = create_bitmap(PORT_BMP_W, PORT_BMP_H);
@@ -322,8 +343,11 @@ bool parked[MAX_SHIPS] = {false};
 	const int id = get_task_index(arg);
 	set_activation(id);
 
-	while (!end) {
-
+	while (!c_end) {
+		pthread_mutex_lock(&mutex_end);
+		c_end = end;
+		pthread_mutex_unlock(&mutex_end);
+		
 		clear_to_color(sea, SEA_COLOR);
 		for (i = 0; i < ships_activated; ++i)
 		{
@@ -334,7 +358,8 @@ bool parked[MAX_SHIPS] = {false};
 			ship_cur = fleet[i].boat;
 			parked[i] = fleet[i].parking;
 			pthread_mutex_unlock(&mutex_fleet);
-
+			cur_fleet[i].x = x_cur;
+			cur_fleet[i].y = y_cur;
 			pthread_mutex_lock(&mutex_sea);
 			rotate_sprite(sea, ship_cur, x_cur - (XSHIP / 2 ), y_cur, itofix(degree_fix(g_cur)+64));
 			pthread_mutex_unlock(&mutex_sea);
@@ -353,12 +378,20 @@ bool parked[MAX_SHIPS] = {false};
 				e1 = getpixel(routes_bmp, 0, 806 + (YSHIP / 2)) != 0;
 				e2 = getpixel(routes_bmp, 899, 805 + (YSHIP / 2)) != 0;
 				e3 = getpixel(routes_bmp, 450, 899) != 0;
-				x1 = getpixel(routes_bmp, 2, 490  + (YSHIP / 2)) != 0;
-				x2 = getpixel(routes_bmp, 899, 490 + (YSHIP / 2)) != 0;
 
-				if ((e1 || e2 || e3) && routes[i].trace != NULL && !parked[i] && (x1 || x2)) {
-					counter ++;
-					draw_sprite(routes_bmp, routes[i].trace, 0, YSHIP / 2);
+				if (cur_fleet[i].y > Y_PORT)
+				{
+					if ((e1 || e2 || e3) && routes[i].trace != NULL)
+					{
+						counter ++;
+						draw_sprite(routes_bmp, routes[i].trace, 0, YSHIP / 2);	
+					}
+				}
+				
+				if (cur_fleet[i].y < Y_PORT && routes[i].trace != NULL && !parked[i]) 
+				{
+						counter ++;
+						draw_sprite(routes_bmp, routes[i].trace, 0, YSHIP / 2);	
 				}
 
 			}
@@ -376,7 +409,6 @@ bool parked[MAX_SHIPS] = {false};
 		blit(radar, screen, 0, 0,910, 0, radar->w, radar->h);
 		pthread_mutex_unlock(&mutex_radar);
 
-		//printf("routes showed %d\n", counter);
 		counter = 0;
 		if (deadline_miss(id))
 		{   
@@ -435,6 +467,8 @@ void init(void)
 	pthread_mutex_init(&mutex_route, NULL);
 	pthread_mutex_init(&mutex_sea, NULL);
 	pthread_mutex_init(&mutex_radar, NULL);
+	pthread_mutex_init(&mutex_end, NULL);
+	pthread_mutex_init(&mutex_s_route, NULL);
 
 	task_create(display, PERIOD	, DLINE, PRIO);
 	task_create(radar_task, PERIOD, DLINE, PRIO);
@@ -508,8 +542,6 @@ bool active;
 
 int main()
 {
-int i;
-
 	if (MAX_SHIPS + AUX_THREAD > MAX_THREADS)
 	{
 		printf("too many ships! The max number of ships + the auxiliar thread"
