@@ -28,6 +28,8 @@
 #define YSHIP			54			// height dimension of the ship
 #define MIN_P_TIME		100			// min ship parking time, in ms
 #define	MAX_P_TIME		30000		// max ship parking time, in ms
+#define MIN_VEL			0.5			// minimum speed
+#define	MAX_VEL			3			// maximum speed
 
 //-----------------------------------------------------------------------------
 // GLOBAL CONSTANTS related to the radar
@@ -62,6 +64,7 @@ typedef struct ship
 {
 	float x, y;
 	float traj_grade; 
+	float vel;
 	BITMAP * boat;
 	struct timespec p_time;
 	bool parking;
@@ -119,7 +122,8 @@ void reverse_array(pair trace[], int last_index);
 int make_array_trace(BITMAP * t, pair trace[], int id, bool odd, int req);
 bool check_forward(float x_cur, float y_cur, float g_cur);
 bool check_position(float y_ship, int y);
-int follow_track_frw(int id, int i, pair mytrace[], int last_index, bool move, float vel);
+int follow_track_frw(int id, int i, pair mytrace[], int last_index, bool move, 
+															BITMAP * cur_trace);
 void rotate90_ship(int id, float x_cur, int y1, int y2);
 bool exit_ship(int id, float x_cur);
 float distance_vector (float x1, float y1, float x2, float y2);

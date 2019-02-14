@@ -4,14 +4,11 @@
 #include <stdio.h>
 #include "ptask.h"
 
-#define MIN_VEL			3		// minimum speed
-#define	MAX_VEL			3		// maximum speed
-
 void * ship_task(void * arg)
 {
 int i;
 int ship_id;
-int last_index, guard_index, place_index;
+int last_index, guard_index, place_index, port_index;
 int cur_req;
 int time_wakeup;
 int color;
@@ -82,6 +79,7 @@ const int id = get_task_index(arg);
 					mytrace_computed = true;
 					i = 0;
 					guard_index = find_index(mytrace, YGUARD_POS);
+					port_index = find_index(mytrace, Y_PORT);
 					pthread_mutex_lock(&mutex_fleet);
 					fleet[ship_id].x = mytrace[i].x;
 					fleet[ship_id].y = mytrace[i].y;
@@ -101,32 +99,12 @@ const int id = get_task_index(arg);
 
 				else if (move)
 				{
-					color = getpixel(cur_trace, mytrace[i].x, mytrace[i].y);
-					
-					if (color == red)
-					{
-						t = 0;
-						w += 1;
-						vel += (1 - powf(M_E,(0.0005 * w)));
-						vel = (vel < MIN_VEL) ? MIN_VEL : vel;
-					}
-					else
-					{
-						t +=1;
-						w = 0;
-						vel -= (1 - powf(M_E,(0.0005 * t)));
-						vel = (vel > MAX_VEL) ? MAX_VEL : vel;
-
-					}
-					i = follow_track_frw(ship_id, i, mytrace, guard_index, move, vel);
+					i = follow_track_frw(ship_id, i, mytrace, guard_index, move, cur_trace);
 				}
 				else
 				{
-						t = 0;
-						w += 1;
-						vel += (1 - powf(M_E,(0.0005 * w)));					
+					i = follow_track_frw(ship_id, i, mytrace, i, move, cur_trace);	
 				}
-
 			}
 
 			if (second_step && cur_repl)
@@ -140,29 +118,11 @@ const int id = get_task_index(arg);
 					third_step = true;
 					second_step = false;
 					first_step = false;
-					vel = MIN_VEL;
 				}
 
 				else 
 				{
-					color = getpixel(cur_trace, mytrace[i].x, mytrace[i].y);
-
-					if (color == red)
-					{
-						t = 0;
-						w += 1;
-						vel += (1 - powf(M_E,(0.0005 * w)));
-						vel = (vel < MIN_VEL) ? MIN_VEL : vel;
-					}
-					else
-					{
-						t +=1;
-						w = 0;
-						vel -= (1 - powf(M_E,(0.0005 * t)));
-						vel = (vel > MAX_VEL) ? MAX_VEL : vel;
-
-					}
-					i = follow_track_frw(ship_id, i, mytrace, last_index, true, vel);
+					i = follow_track_frw(ship_id, i, mytrace, port_index, true, cur_trace);
 				}
 
 			
@@ -207,8 +167,6 @@ const int id = get_task_index(arg);
 							cur_req = Y_EXIT;
 							wait = false;
 							mytrace_computed = false;
-							t = 0;
-							w = 0;
 							third_step = false;
 							fourth_step = true;
 						}
@@ -218,25 +176,7 @@ const int id = get_task_index(arg);
 				else
 				{
 
-					color = getpixel(cur_trace, mytrace[i].x, mytrace[i].y);
-					
-					if (color == red)
-					{
-						t = 0;
-						w += 1;
-						vel += (1 - powf(M_E,(0.0005 * w)));
-						vel = (vel < MIN_VEL) ? MIN_VEL : vel;
-					}
-					else
-					{
-						t +=1;
-						w = 0;
-						vel -= (1 - powf(M_E,(0.0005 * t)));
-						vel = (vel > MAX_VEL) ? MAX_VEL : vel;
-
-					}
-
-					i = follow_track_frw(ship_id, i, mytrace, place_index, true, vel);
+					i = follow_track_frw(ship_id, i, mytrace, place_index, true, cur_trace);
 				}
 
 			}
@@ -256,25 +196,7 @@ const int id = get_task_index(arg);
 
 				else if (x_cur > EPSILON + YSHIP && x_cur < PORT_BMP_W - EPSILON - YSHIP)
 				{
-					color = getpixel(cur_trace, mytrace[i].x, mytrace[i].y);
-					
-					if (color == red)
-					{
-						t = 0;
-						w += 1;
-						vel += (1 - powf(M_E,(0.0005 * w)));
-						vel = (vel < MIN_VEL) ? MIN_VEL : vel;
-					}
-					else
-					{
-						t +=1;
-						w = 0;
-						vel -= (1 - powf(M_E,(0.0005 * t)));
-						vel = (vel > MAX_VEL) ? MAX_VEL : vel;
-
-					}
-
-					i = follow_track_frw(ship_id, i, mytrace, last_index, true, vel);
+					i = follow_track_frw(ship_id, i, mytrace, last_index, true, cur_trace);
 				}
 
 				if (check_position(y_cur, Y_PORT - XSHIP) && cur_req == Y_EXIT)
@@ -292,8 +214,6 @@ const int id = get_task_index(arg);
 						cur_repl = false;
 						first_step = true;
 						fourth_step = false;
-						t = 0;
-						w = 0;
 						active = false;
 						cur_trace = NULL;
 					}
@@ -426,20 +346,38 @@ fleet[id].traj_grade = grade;
 
 
 int follow_track_frw(int id, int i, pair mytrace[X_PORT * Y_PORT], 
-										int last_index, bool move, float vel)
+										int last_index, bool move, BITMAP * cur_trace)
 {
 	float p = 0.03;
 	float des;
 	float acc;
 	float d_obj;
+	float c_vel;
+	int red = makecol(255, 0, 0);
 	int index;
 
 	pthread_mutex_lock(&mutex_fleet);
-
+	c_vel = fleet[id].vel;
 	d_obj = distance_vector(fleet[id].x, fleet[id].y, mytrace[last_index].x, 
 												mytrace[last_index].y);
-	vel = ((d_obj / 2) * p < vel) ? (d_obj / 2) * p : vel;
-	des = vel*PERIOD;
+	
+	c_vel = ((d_obj / 2) * p < c_vel) ? (d_obj / 2) * p : c_vel;
+	c_vel = (c_vel > MAX_VEL) ? MAX_VEL: c_vel;
+
+	fleet[id].vel = (fleet[id].vel < c_vel) ? fleet[id].vel: c_vel;
+
+	if (getpixel(cur_trace, mytrace[i].x, mytrace[i].y) == red)
+	{
+		fleet[id].vel -= 0.03;
+		fleet[id].vel = (fleet[id].vel < MIN_VEL)? fleet[id].vel + MIN_VEL: fleet[id].vel;
+	}
+
+	else 
+	{
+		fleet[id].vel += 0.03;
+	}
+
+	des = fleet[id].vel*PERIOD;
 	acc = distance_vector(fleet[id].x, fleet[id].y, mytrace[i].x, mytrace[i].y);
 
 	while (des > acc)

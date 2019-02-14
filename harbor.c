@@ -376,7 +376,7 @@ bool parked[MAX_SHIPS] = {false};
 		blit(radar, screen, 0, 0,910, 0, radar->w, radar->h);
 		pthread_mutex_unlock(&mutex_radar);
 
-		printf("routes shoed %d\n", counter);
+		//printf("routes showed %d\n", counter);
 		counter = 0;
 		if (deadline_miss(id))
 		{   
@@ -462,6 +462,7 @@ bool active;
 		fleet[ships_activated].x = 0.0; 
 		fleet[ships_activated].y = 0.0; 
 		fleet[ships_activated].active = true;
+		fleet[ships_activated].vel = MIN_VEL;
 		pthread_mutex_unlock(&mutex_fleet);
 
 		pthread_mutex_lock(&mutex_route);
