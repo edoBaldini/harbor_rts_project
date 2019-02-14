@@ -305,11 +305,16 @@ void * display(void *arg)
 BITMAP * port_bmp;
 BITMAP * back_sea_bmp;
 BITMAP * ship_cur;
-int i, e1, e2, e3;
+BITMAP * routes_bmp;
+int i, e1, e2, e3, x1, x2, j;
 float x_cur, y_cur, g_cur;
+int counter = 0;
+bool parked[MAX_SHIPS] = {false};
 
 	back_sea_bmp = create_bitmap(PORT_BMP_W, PORT_BMP_H);
+	routes_bmp = create_bitmap(PORT_BMP_W, PORT_BMP_H);
 	clear_bitmap(back_sea_bmp);
+	clear_bitmap(routes_bmp);
 
 	port_bmp = load_bitmap("port.bmp", NULL);
 
@@ -327,6 +332,7 @@ float x_cur, y_cur, g_cur;
 			y_cur = fleet[i].y;
 			g_cur = fleet[i].traj_grade;
 			ship_cur = fleet[i].boat;
+			parked[i] = fleet[i].parking;
 			pthread_mutex_unlock(&mutex_fleet);
 
 			pthread_mutex_lock(&mutex_sea);
@@ -337,49 +343,41 @@ float x_cur, y_cur, g_cur;
 		blit(sea, back_sea_bmp, 0, 0, 0,0,sea->w, sea->h);
 		pthread_mutex_unlock(&mutex_sea);
 		draw_sprite(back_sea_bmp, port_bmp, 0, 0);
-		
+		blit(back_sea_bmp, routes_bmp, 0,0,0,0,back_sea_bmp->w, back_sea_bmp->h); 
+
 		if (show_routes)
 		{
 			pthread_mutex_lock(&mutex_route);
 			for (i = 0; i < ships_activated; ++i)
 			{
-				e1 = getpixel(screen, 0, 806 + (YSHIP / 2));
-				e2 = getpixel(screen, 899, 805 + (YSHIP / 2));
-				e3 = getpixel(screen, 450, 899);
-				if (e1 || e2 || e3)
-				draw_sprite(back_sea_bmp, routes[i].trace, 0, YSHIP / 2);
+				e1 = getpixel(routes_bmp, 0, 806 + (YSHIP / 2)) != 0;
+				e2 = getpixel(routes_bmp, 899, 805 + (YSHIP / 2)) != 0;
+				e3 = getpixel(routes_bmp, 450, 899) != 0;
+				x1 = getpixel(routes_bmp, 2, 490  + (YSHIP / 2)) != 0;
+				x2 = getpixel(routes_bmp, 899, 490 + (YSHIP / 2)) != 0;
+
+				if ((e1 || e2 || e3) && routes[i].trace != NULL && !parked[i] && (x1 || x2)) {
+					counter ++;
+					draw_sprite(routes_bmp, routes[i].trace, 0, YSHIP / 2);
+				}
 
 			}
 			pthread_mutex_unlock(&mutex_route);
 
 		}
-//	USEFUL TO VISUALIZE CHECK_FWD()
-		/*for (int k = 0; k < ships_activated; ++k){
-			float alpha = M_PI;
-			for (int j = (YSHIP / 2); j < 90; j++)
-			{
-				alpha += 0.2;
-				alpha = (alpha >= 2 * M_PI) ? M_PI : alpha;
-				float x = fleet[k].x + j * cos(fleet[k].traj_grade);
-				float y = fleet[k].y + j * sin(fleet[k].traj_grade) + (YSHIP / 2);
-				putpixel(back_sea_bmp, x, y, 0);
-				putpixel(back_sea_bmp, x + (XSHIP / 2), y - (XSHIP / 2), 0);
-
- 				putpixel(back_sea_bmp, x, y, 0);
- 				float x1 = fleet[k].x + j * cos(alpha);
-				float y1 =  fleet[k].y + j * sin(alpha) + (YSHIP / 2);
- 				putpixel(back_sea_bmp, x1, y1, 0);
-			}
-		}*/
 
 		putpixel(back_sea_bmp, X_PORT, Y_PORT, makecol(255,0,255));
-		blit(back_sea_bmp, screen, 0,0,0,0,back_sea_bmp->w, back_sea_bmp->h); 
+		putpixel(back_sea_bmp, X_PORT, YGUARD_POS, makecol(255,0,255));
+
+		blit(routes_bmp, screen, 0, 0, 0, 0, routes_bmp-> w, routes_bmp-> h);
 
 		pthread_mutex_lock(&mutex_radar);
 		circle(radar, R_BMP_W / 2, R_BMP_H / 2, R_BMP_H / 2, makecol(255,255,255));
 		blit(radar, screen, 0, 0,910, 0, radar->w, radar->h);
 		pthread_mutex_unlock(&mutex_radar);
 
+		printf("routes shoed %d\n", counter);
+		counter = 0;
 		if (deadline_miss(id))
 		{   
 			printf("%d) deadline missed! display\n", id);
@@ -429,7 +427,7 @@ void init(void)
 
 	enter_trace[0] = load_bitmap("e1_c.bmp", NULL);
 	enter_trace[1] = load_bitmap("e2_c.bmp", NULL);
-	enter_trace[2] = load_bitmap("e3.bmp", NULL);
+	enter_trace[2] = load_bitmap("e3_c.bmp", NULL);
 	
 	pthread_mutex_init(&mutex_rr, NULL);
 	pthread_mutex_init(&mutex_p, NULL);
@@ -439,7 +437,7 @@ void init(void)
 	pthread_mutex_init(&mutex_radar, NULL);
 
 	task_create(display, PERIOD	, DLINE, PRIO);
-	task_create(radar_task, 15, 10, PRIO);
+	task_create(radar_task, PERIOD, DLINE, PRIO);
 	task_create(controller_task, PERIOD, DLINE, PRIO);
 	task_create(user_task, PERIOD, DLINE, PRIO);
 
@@ -685,7 +683,6 @@ void mark_label(BITMAP * boat)
 
 	int color_assigned = 255 - (ships_activated * 10);
 	rectfill(boat, 5,7, 12, 14, makecol(0,0, color_assigned));
-	//printf("color assigned %d\n", makecol(0,0, color_assigned));
 
 }
 

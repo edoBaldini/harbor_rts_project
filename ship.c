@@ -4,14 +4,14 @@
 #include <stdio.h>
 #include "ptask.h"
 
-#define MIN_VEL			0.5		// minimum speed
+#define MIN_VEL			3		// minimum speed
 #define	MAX_VEL			3		// maximum speed
 
 void * ship_task(void * arg)
 {
 int i;
 int ship_id;
-int last_index, guard_index;
+int last_index, guard_index, place_index;
 int cur_req;
 int time_wakeup;
 int color;
@@ -95,7 +95,6 @@ const int id = get_task_index(arg);
 					i = guard_index;
 					w = 0;
 					t = 0;
-					vel = MIN_VEL;
 					second_step = true;
 					first_step = false;
 				}
@@ -123,14 +122,10 @@ const int id = get_task_index(arg);
 				}
 				else
 				{
-					t = 0;
-					w += 1;
-					vel += 60 * (1 - powf(M_E,(0.0005 * w)));
-					//vel = (vel < MIN_VEL) ? MIN_VEL : vel;
-					i = follow_track_frw(ship_id, i, mytrace, i, move, vel);
-
+						t = 0;
+						w += 1;
+						vel += (1 - powf(M_E,(0.0005 * w)));					
 				}
-
 
 			}
 
@@ -145,9 +140,10 @@ const int id = get_task_index(arg);
 					third_step = true;
 					second_step = false;
 					first_step = false;
+					vel = MIN_VEL;
 				}
 
-				else
+				else 
 				{
 					color = getpixel(cur_trace, mytrace[i].x, mytrace[i].y);
 
@@ -180,6 +176,7 @@ const int id = get_task_index(arg);
 													ship_id, is_odd, cur_req);
 					mytrace_computed = true;
 					i = 0;
+					place_index = find_index(mytrace, Y_PLACE - YSHIP);
 				}
 
 				if (check_position(y_cur, Y_PLACE + XSHIP))
@@ -239,7 +236,7 @@ const int id = get_task_index(arg);
 
 					}
 
-					i = follow_track_frw(ship_id, i, mytrace, last_index, true, vel);
+					i = follow_track_frw(ship_id, i, mytrace, place_index, true, vel);
 				}
 
 			}
@@ -251,6 +248,7 @@ const int id = get_task_index(arg);
 					last_index = make_array_trace(cur_trace, mytrace,
 					 								ship_id, is_odd, cur_req);
 					mytrace_computed = true;
+					printf("y of exit %f\n", mytrace[last_index].y);
 					i = 0;
 				}
 				if (y_cur < mytrace[0].y)
@@ -297,6 +295,7 @@ const int id = get_task_index(arg);
 						t = 0;
 						w = 0;
 						active = false;
+						cur_trace = NULL;
 					}
 				}
 			}	
@@ -310,6 +309,10 @@ const int id = get_task_index(arg);
 			reply_access[ship_id] = cur_repl;
 			request_access[ship_id] = cur_req;
 			pthread_mutex_unlock(&mutex_rr);
+			
+			pthread_mutex_lock(&mutex_route);
+			routes[ship_id].trace = cur_trace;
+			pthread_mutex_unlock(&mutex_route);
 		}
 
 		if (deadline_miss(id))
@@ -382,37 +385,6 @@ for (j = PORT_BMP_H; j > 0; --j)
 	return last_index;
 }
 
-bool check_straight(float x_cur, float y_cur, float g_cur)
-{
-float x, y, j;
-int color;
-float alpha = M_PI;
-j = (YSHIP / 2); 
-	while (j < 90)
-	{
-		alpha = (alpha >= 2 * M_PI) ? M_PI : alpha + 0.2; 
-		x = x_cur + j * cos(alpha);
-		y = y_cur + j * sin(alpha) + (YSHIP / 2);
-		pthread_mutex_lock(&mutex_sea);
-		color = getpixel(sea, x, y);
-		pthread_mutex_unlock(&mutex_sea);
-
-		if (color != SEA_COLOR && color != -1)
-		{
-			if (x < x_cur || x_cur > X_PORT)
-			{
-
-				return false;
-			}
-
-			else return true; 		
-		}
-		j += 0.5;
-	}
-	
- 	return false;
-}
-
 bool check_forward(float x_cur, float y_cur, float g_cur)
 {
 float x, y, j;
@@ -432,11 +404,6 @@ int color1, color2;
 		{
 			return true; 		
 		}
-		else if (check_straight(x_cur, y_cur, g_cur))
-		{
-			return true;
-		}
-
 	}	
 	
  	return false;
@@ -470,7 +437,7 @@ int follow_track_frw(int id, int i, pair mytrace[X_PORT * Y_PORT],
 	pthread_mutex_lock(&mutex_fleet);
 
 	d_obj = distance_vector(fleet[id].x, fleet[id].y, mytrace[last_index].x, 
-												mytrace[last_index].y + YSHIP);
+												mytrace[last_index].y);
 	vel = ((d_obj / 2) * p < vel) ? (d_obj / 2) * p : vel;
 	des = vel*PERIOD;
 	acc = distance_vector(fleet[id].x, fleet[id].y, mytrace[i].x, mytrace[i].y);
