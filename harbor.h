@@ -62,13 +62,13 @@ typedef int bool;
 
 typedef struct ship 
 {
-	float x, y;
-	float traj_grade; 
-	float vel;
-	BITMAP * boat;
-	struct timespec p_time;
-	bool parking;
-	bool active;
+	float x, y;								// x, y coordinates
+	float traj_grade; 						// ship angle
+	float vel;								// ship velocity
+	BITMAP * boat;							// ship bitmap
+	struct timespec p_time;					// ship parking time
+	bool parking;							// parking status
+	bool active;							// active status
 }ship;
 
 typedef struct pair
@@ -78,34 +78,36 @@ typedef struct pair
 
 typedef struct route
 {
-	BITMAP * trace;
-	bool odd;
-	float x, y; 
-	float x_b, y_b;
+	BITMAP * trace;							// route bitmap
+	bool odd;								// check if it is left route
+	float x, y; 							// last coordinates of the route
 }route;
 
 typedef struct place 
 {
-	BITMAP * enter_trace;
-	BITMAP * exit_trace;
-	int ship_id;
-	bool available;
+	BITMAP * enter_trace;					// entertrace bitmap
+	BITMAP * exit_trace;					// exit trace bitap
+	int ship_id;							// ships id to which the place has
+											// been assigned
+	bool available;							// availability status
 }place; 
 
-extern BITMAP * sea;
+extern BITMAP * sea;						// sea bitmap
 
-extern struct ship fleet[MAX_SHIPS];
+extern struct ship fleet[MAX_SHIPS];		// array that maintains all ships
 extern struct route routes[MAX_SHIPS];
 
-extern int request_access[MAX_SHIPS];
-
-extern bool reply_access[MAX_SHIPS];
-extern bool end;
-extern pthread_mutex_t mutex_fleet;
-extern pthread_mutex_t mutex_route;
-extern pthread_mutex_t mutex_rr;
-extern pthread_mutex_t mutex_sea;
-extern pthread_mutex_t mutex_end;
+extern int request_access[MAX_SHIPS];		// array that maintains the requests
+											// 	of all the ships
+extern bool reply_access[MAX_SHIPS];		// array that maintains the replies
+											//	of all the ships
+extern bool end;							// variable that identifies the 
+											//	execution end
+extern pthread_mutex_t mutex_fleet;			// mutex variable for the fleet
+extern pthread_mutex_t mutex_route;			// mutex variable for the routes
+extern pthread_mutex_t mutex_rr;			// mutex variable for request/reply
+extern pthread_mutex_t mutex_sea;			// mutex variable for the sea
+extern pthread_mutex_t mutex_end;			// mutex variable for the end
 
 //------------------------------------------------------------------------------
 //	SHIP FUNCTIONS
