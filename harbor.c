@@ -322,7 +322,6 @@ const int id = get_task_index(arg);
 void * display(void *arg)
 {
 BITMAP * port_bmp;
-BITMAP * back_sea_bmp;
 BITMAP * ship_cur;
 BITMAP * routes_bmp;
 int i, e1, e2, e3;
@@ -332,9 +331,7 @@ bool parked[MAX_SHIPS] = {false};
 bool c_end = false;
 pair cur_fleet[MAX_SHIPS];
 
-	back_sea_bmp = create_bitmap(PORT_BMP_W, PORT_BMP_H);
 	routes_bmp = create_bitmap(PORT_BMP_W, PORT_BMP_H);
-	clear_bitmap(back_sea_bmp);
 	clear_bitmap(routes_bmp);
 
 	port_bmp = load_bitmap("port.bmp", NULL);
@@ -365,10 +362,9 @@ pair cur_fleet[MAX_SHIPS];
 			pthread_mutex_unlock(&mutex_sea);
 		}
 		pthread_mutex_lock(&mutex_sea);
-		blit(sea, back_sea_bmp, 0, 0, 0,0,sea->w, sea->h);
+		blit(sea, routes_bmp, 0, 0, 0,0,sea->w, sea->h);
 		pthread_mutex_unlock(&mutex_sea);
-		draw_sprite(back_sea_bmp, port_bmp, 0, 0);
-		blit(back_sea_bmp, routes_bmp, 0,0,0,0,back_sea_bmp->w, back_sea_bmp->h); 
+		draw_sprite(routes_bmp, port_bmp, 0, 0);
 
 		if (show_routes)
 		{
@@ -399,8 +395,8 @@ pair cur_fleet[MAX_SHIPS];
 
 		}
 
-		putpixel(back_sea_bmp, X_PORT, Y_PORT, makecol(255,0,255));
-		putpixel(back_sea_bmp, X_PORT, YGUARD_POS, makecol(255,0,255));
+		putpixel(routes_bmp, X_PORT, Y_PORT, makecol(255,0,255));
+		putpixel(routes_bmp, X_PORT, YGUARD_POS, makecol(255,0,255));
 
 		blit(routes_bmp, screen, 0, 0, 0, 0, routes_bmp-> w, routes_bmp-> h);
 
@@ -419,7 +415,9 @@ pair cur_fleet[MAX_SHIPS];
 	}
 
 	for (i = 0; i < ships_activated; ++i)
+	{
 		destroy_bitmap(fleet[i].boat);
+	}
 		
 
 	for (i = 0; i < PLACE_NUMBER; ++i)
@@ -430,6 +428,8 @@ pair cur_fleet[MAX_SHIPS];
 	
 	destroy_bitmap(port_bmp);
 	destroy_bitmap(sea);
+	destroy_bitmap(routes_bmp);
+
 
 	return NULL;
 }
