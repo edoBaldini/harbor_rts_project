@@ -347,7 +347,7 @@ pair cur_fleet[MAX_SHIPS];
 		pthread_mutex_lock(&mutex_end);
 		c_end = end;
 		pthread_mutex_unlock(&mutex_end);
-		
+
 		clear_to_color(sea, SEA_COLOR);
 		for (i = 0; i < ships_activated; ++i)
 		{
@@ -686,16 +686,16 @@ int i, j;
 		places[j].available = true;
 	}
 	places[7].enter_trace = load_bitmap("w1_c.bmp", NULL);
-	places[7].exit_trace = load_bitmap("x1.bmp", NULL);
+	places[7].exit_trace = load_bitmap("x1_c.bmp", NULL);
 
 	places[6].enter_trace = load_bitmap("w2_c.bmp", NULL);
-	places[6].exit_trace = load_bitmap("x2.bmp", NULL);
+	places[6].exit_trace = load_bitmap("x2_c.bmp", NULL);
 
 	places[5].enter_trace = load_bitmap("w3_c.bmp", NULL);
-	places[5].exit_trace = load_bitmap("x3.bmp", NULL);
+	places[5].exit_trace = load_bitmap("x3_c.bmp", NULL);
 
 	places[4].enter_trace = load_bitmap("w4_c.bmp", NULL);
-	places[4].exit_trace = load_bitmap("x4.bmp", NULL);
+	places[4].exit_trace = load_bitmap("x4_c.bmp", NULL);
 
 	for (i = 0; i < 4; ++i)
 	{

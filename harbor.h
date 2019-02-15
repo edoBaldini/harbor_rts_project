@@ -105,6 +105,7 @@ extern pthread_mutex_t mutex_fleet;
 extern pthread_mutex_t mutex_route;
 extern pthread_mutex_t mutex_rr;
 extern pthread_mutex_t mutex_sea;
+extern pthread_mutex_t mutex_end;
 
 
 void * ship_task(void * arg);
