@@ -1,4 +1,4 @@
-#include "harbor.h"
+#include "common.h"
 #include <math.h>
 #include <stdio.h>
 #include <pthread.h>
@@ -45,6 +45,15 @@ void free_trace(int ship);
 //	USER FUNCTIONS
 //------------------------------------------------------------------------------
 int click_place(int offset, int delta, int l_x, int r_x);
+
+//------------------------------------------------------------------------------
+//	AUXILIAR FUNCTIONS
+//------------------------------------------------------------------------------
+void * ship_task(void * arg);
+void init(void);
+void init_ship();
+void fill_places();
+void mark_label(BITMAP * boat);
 
 void * user_task(void * arg)
 {   
