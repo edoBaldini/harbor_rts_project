@@ -520,7 +520,7 @@ bool active;
 		fleet[ships_activated].traj_grade = 3 * M_PI / 2;
 		mark_label(fleet[ships_activated].boat);
 		fleet[ships_activated].x = 0.0; 
-		fleet[ships_activated].y = 0.0; 
+		fleet[ships_activated].y = PORT_BMP_H - 1; 
 		fleet[ships_activated].active = true;
 		fleet[ships_activated].vel = MIN_VEL;
 		pthread_mutex_unlock(&mutex_fleet);
@@ -549,7 +549,7 @@ bool active;
 				pthread_mutex_lock(&mutex_fleet);
 				fleet[i].parking = false;
 				fleet[i].x = 0.0;
-				fleet[i].y = 0.0;
+				fleet[i].y = PORT_BMP_H - 1;
 				fleet[i].active = true;
 				pthread_mutex_unlock(&mutex_fleet);
 

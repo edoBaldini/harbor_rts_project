@@ -5,11 +5,11 @@
 #include <stdio.h>
 #include "ptask.h"
 
-
 void * ship_task(void * arg)
 {
-int i, ship_id;
-int last_index, guard_index, place_index, port_index;
+int i;
+int ship_id;
+int guard_index, place_index, port_index, exit_index;
 int cur_req;
 int time_wakeup;
 int color;
@@ -76,16 +76,8 @@ const int id = get_task_index(arg);
 			{	
 				if (!mytrace_computed)
 				{
-					last_index = make_array_trace(cur_trace, mytrace, 
-													ship_id, is_odd, cur_req);
+					guard_index = compute_mytrace(ship_id, is_odd, mytrace, cur_trace, YGUARD_POS);
 					mytrace_computed = true;
-					i = 0;
-					guard_index = find_index(mytrace, YGUARD_POS);
-					port_index = find_index(mytrace, Y_PORT);
-					pthread_mutex_lock(&mutex_fleet);
-					fleet[ship_id].x = mytrace[i].x;
-					fleet[ship_id].y = mytrace[i].y;
-					pthread_mutex_unlock(&mutex_fleet);
 				}
 
 				if(check_position(y_cur, YGUARD_POS))
@@ -95,6 +87,7 @@ const int id = get_task_index(arg);
 					i = guard_index;
 					second_step = true;
 					first_step = false;
+					mytrace_computed = false;
 				}
 
 				else if (move)
@@ -109,6 +102,11 @@ const int id = get_task_index(arg);
 
 			if (second_step && cur_repl)
 			{
+				if (!mytrace_computed)
+				{
+					port_index = find_index(mytrace, Y_PORT);
+					mytrace_computed = true;
+				}
 				if(check_position(y_cur, Y_PORT))
 				{
 					cur_repl = false;
@@ -123,20 +121,15 @@ const int id = get_task_index(arg);
 				else 
 				{
 					i = follow_track_frw(ship_id, i, mytrace, port_index, true, cur_trace);
-				}
-
-			
+				}			
 			}
 
 			if (third_step && cur_repl)
 			{
 				if (!mytrace_computed)
 				{
-					last_index = make_array_trace(cur_trace, mytrace, 
-													ship_id, is_odd, cur_req);
+					place_index = compute_mytrace(ship_id, is_odd, mytrace, cur_trace, Y_PLACE - YSHIP);
 					mytrace_computed = true;
-					i = 0;
-					place_index = find_index(mytrace, Y_PLACE - YSHIP);
 				}
 
 				if (check_position(y_cur, Y_PLACE + XSHIP))
@@ -146,7 +139,6 @@ const int id = get_task_index(arg);
 
 				if(check_position(y_cur, Y_PLACE - YSHIP))
 				{
-
 					if (!wait)
 					{	
 						cur_req = 1;
@@ -166,6 +158,7 @@ const int id = get_task_index(arg);
 							cur_repl = false;
 							cur_req = Y_EXIT;
 							wait = false;
+							i = 0;
 							mytrace_computed = false;
 							third_step = false;
 							fourth_step = true;
@@ -185,17 +178,15 @@ const int id = get_task_index(arg);
 			{
 				if (!mytrace_computed)
 				{
-					last_index = make_array_trace(cur_trace, mytrace,
-					 								ship_id, is_odd, cur_req);
-					mytrace_computed = true;
-					i = 0;
+					exit_index = compute_mytrace(ship_id, is_odd, mytrace, cur_trace, Y_EXIT);
+					mytrace_computed = true;;
 				}
 				if (y_cur < mytrace[0].y)
 					rotate90_ship(ship_id, x_cur,Y_PLACE, mytrace[0].y + YSHIP);
 
 				else if (x_cur > EPSILON + YSHIP && x_cur < PORT_BMP_W - EPSILON - YSHIP)
 				{
-					i = follow_track_frw(ship_id, i, mytrace, last_index, true, cur_trace);
+					i = follow_track_frw(ship_id, i, mytrace, exit_index, true, cur_trace);
 				}
 
 				if (check_position(y_cur, Y_PORT - XSHIP) && cur_req == Y_EXIT)
@@ -248,6 +239,16 @@ const int id = get_task_index(arg);
 //------------------------------------------------------------------------------
 // FUNCTIONS FOR SHIPS
 //------------------------------------------------------------------------------
+int compute_mytrace(int ship_id, bool is_odd, pair mytrace[X_PORT * Y_PORT], 
+																	BITMAP * cur_trace, int obj)
+{
+int index_objective;
+
+	make_array_trace(cur_trace, mytrace, ship_id, is_odd, obj);
+	index_objective =  find_index(mytrace, obj);
+	return index_objective;
+}
+ 
 void reverse_array(pair trace[X_PORT * Y_PORT], int last_index)
 {
 int i;
@@ -262,8 +263,7 @@ int size = last_index;
 	}
 }
 
-int make_array_trace(BITMAP * t, pair trace[PORT_BMP_W * PORT_BMP_H], int id, 
-															bool odd, int req)
+void make_array_trace(BITMAP * t, pair trace[PORT_BMP_W * PORT_BMP_H], int id, bool odd, int obj)
 {
 int color;
 int index = 0;
@@ -298,10 +298,8 @@ for (j = PORT_BMP_H; j > 0; --j)
 	}
 	last_index = -- index;
 
-	if (req == Y_EXIT)
+	if (obj == Y_EXIT)
 		reverse_array(trace, last_index);
-
-	return last_index;
 }
 
 bool check_forward(float x_cur, float y_cur, float g_cur)

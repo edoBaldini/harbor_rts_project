@@ -28,7 +28,7 @@
 #define YSHIP			54			// height dimension of the ship
 #define MIN_P_TIME		50000			// min ship parking time, in ms
 #define	MAX_P_TIME		50000		// max ship parking time, in ms
-#define MIN_VEL			9			// minimum speed
+#define MIN_VEL			3			// minimum speed
 #define	MAX_VEL			9			// maximum speed
 
 //-----------------------------------------------------------------------------
@@ -54,7 +54,7 @@
 #define PORT_BMP_W		900			//	width port 
 #define PORT_BMP_H		900			//	height port
 #define	Y_PLACE			253			//	y value of the places
-#define Y_EXIT			330			//	y value of the port exit
+#define Y_EXIT			490			//	y value of the port exit
 
 //-----------------------------------------------------------------------------
 // GLOBAL STRUCTURE
