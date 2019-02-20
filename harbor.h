@@ -26,10 +26,10 @@
 //------------------------------------------------------------------------------
 #define XSHIP			18			// width dimension of the ship  
 #define YSHIP			54			// height dimension of the ship
-#define MIN_P_TIME		100			// min ship parking time, in ms
-#define	MAX_P_TIME		30000		// max ship parking time, in ms
-#define MIN_VEL			0.5			// minimum speed
-#define	MAX_VEL			3			// maximum speed
+#define MIN_P_TIME		50000			// min ship parking time, in ms
+#define	MAX_P_TIME		50000		// max ship parking time, in ms
+#define MIN_VEL			9			// minimum speed
+#define	MAX_VEL			9			// maximum speed
 
 //-----------------------------------------------------------------------------
 // GLOBAL CONSTANTS related to the radar
@@ -107,48 +107,15 @@ extern pthread_mutex_t mutex_rr;
 extern pthread_mutex_t mutex_sea;
 extern pthread_mutex_t mutex_end;
 
-
-void * ship_task(void * arg);
-//------------------------------------------------------------------------------
-//	RADAR FUNCTIONS
-//------------------------------------------------------------------------------
-bool check_ship(int j, int color);
-float degree_rect(float x1, float y1, float x2, float y2);
-float degree_fix(float grade);
-
-//------------------------------------------------------------------------------
-//	SHIP FUNCTIONS
-//------------------------------------------------------------------------------
-void reverse_array(pair trace[], int last_index);
-int make_array_trace(BITMAP * t, pair trace[], int id, bool odd, int req);
-bool check_forward(float x_cur, float y_cur, float g_cur);
-bool check_position(float y_ship, int y);
-int follow_track_frw(int id, int i, pair mytrace[], int last_index, bool move, 
-															BITMAP * cur_trace);
-void rotate90_ship(int id, float x_cur, int y1, int y2);
-bool exit_ship(int id, float x_cur);
-float distance_vector (float x1, float y1, float x2, float y2);
-int find_index(pair mytrace[X_PORT * Y_PORT], int posix);
-//------------------------------------------------------------------------------
-//	USER FUNCTIONS
-//------------------------------------------------------------------------------
-int click_place(int offset, int delta, int l_x, int r_x);
-
-//------------------------------------------------------------------------------
-//	CONTROLLER FUNCTIONS
-//------------------------------------------------------------------------------
-bool assign_trace(int ship);
-bool assign_exit(int ship);
-void free_trace(int ship);
-
 //------------------------------------------------------------------------------
 //	AUXILIAR FUNCTIONS
 //------------------------------------------------------------------------------
+void * ship_task(void * arg);
 void init(void);
 void init_ship();
 void fill_places();
 void mark_label(BITMAP * boat);
-//void terminate();
+float degree_rect(float x1, float y1, float x2, float y2);
 int random_in_range(int min_x, int max_x);
 pair make_pair(int x, int y);
 

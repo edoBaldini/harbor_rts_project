@@ -28,6 +28,23 @@ pthread_mutex_t mutex_radar;
 pthread_mutex_t mutex_end;
 pthread_mutex_t mutex_s_route;
 
+//------------------------------------------------------------------------------
+//	RADAR FUNCTIONS
+//------------------------------------------------------------------------------
+bool check_ship(int j, int color);
+float degree_fix(float grade);
+
+//------------------------------------------------------------------------------
+//	CONTROLLER FUNCTIONS
+//------------------------------------------------------------------------------
+bool assign_trace(int ship);
+bool assign_exit(int ship);
+void free_trace(int ship);
+
+//------------------------------------------------------------------------------
+//	USER FUNCTIONS
+//------------------------------------------------------------------------------
+int click_place(int offset, int delta, int l_x, int r_x);
 
 void * user_task(void * arg)
 {   
