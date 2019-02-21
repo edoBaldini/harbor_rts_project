@@ -14,7 +14,7 @@ BITMAP * sea;
 BITMAP * radar;
 BITMAP * enter_trace[3];
 int ships_activated = 0;
-int request_access[MAX_SHIPS];
+int request_access[MAX_SHIPS] = {YGUARD_POS};
 bool reply_access[MAX_SHIPS];
 bool end = false;
 bool show_routes = false;
@@ -348,20 +348,20 @@ const int id = get_task_index(arg);
 void * display(void *arg)
 {
 BITMAP * port_bmp;
-BITMAP * ship_cur;
 BITMAP * routes_bmp;
+BITMAP * boat;
 int i, e1, e2, e3;
-float x_cur, y_cur, g_cur;
 int counter = 0;
 bool parked[MAX_SHIPS] = {false};
 bool c_end = false;
 pair cur_fleet[MAX_SHIPS];
+ship cur_ship;
 
 	routes_bmp = create_bitmap(PORT_BMP_W, PORT_BMP_H);
 	clear_bitmap(routes_bmp);
 
 	port_bmp = load_bitmap("port.bmp", NULL);
-
+	boat = load_bitmap("ship_c.bmp", NULL);
 	// Task private variables
 	const int id = get_task_index(arg);
 	set_activation(id);
@@ -375,16 +375,15 @@ pair cur_fleet[MAX_SHIPS];
 		for (i = 0; i < ships_activated; ++i)
 		{
 			pthread_mutex_lock(&mutex_fleet);
-			x_cur = fleet[i].x;
-			y_cur = fleet[i].y;
-			g_cur = fleet[i].traj_grade;
-			ship_cur = fleet[i].boat;
-			parked[i] = fleet[i].parking;
+			cur_ship = fleet[i];
 			pthread_mutex_unlock(&mutex_fleet);
-			cur_fleet[i].x = x_cur;
-			cur_fleet[i].y = y_cur;
+
+			parked[i] = cur_ship.parking;
+			cur_fleet[i].x = cur_ship.x;
+			cur_fleet[i].y = cur_ship.y;
+
 			pthread_mutex_lock(&mutex_sea);
-			rotate_sprite(sea, ship_cur, x_cur - (XSHIP / 2 ), y_cur, itofix(degree_fix(g_cur)+64));
+			rotate_sprite(sea, boat, cur_ship.x - (XSHIP / 2 ), cur_ship.y, itofix(degree_fix(cur_ship.traj_grade) + 64));
 			pthread_mutex_unlock(&mutex_sea);
 		}
 		pthread_mutex_lock(&mutex_sea);
@@ -439,13 +438,7 @@ pair cur_fleet[MAX_SHIPS];
 		wait_for_activation(id);
 
 	}
-
-	for (i = 0; i < ships_activated; ++i)
-	{
-		destroy_bitmap(fleet[i].boat);
-	}
 		
-
 	for (i = 0; i < PLACE_NUMBER; ++i)
 	{
 		destroy_bitmap(places[i].enter_trace);
@@ -514,11 +507,8 @@ bool active;
 		printf("ships_activated  %d  MAX_SHIPS %d\n", ships_activated, MAX_SHIPS);
 
 		pthread_mutex_lock(&mutex_fleet);
-		fleet[ships_activated].boat = create_bitmap(XSHIP, YSHIP);
-		fleet[ships_activated].boat = load_bitmap("ship_c.bmp", NULL);
 		fleet[ships_activated].parking = false;
 		fleet[ships_activated].traj_grade = 3 * M_PI / 2;
-		mark_label(fleet[ships_activated].boat);
 		fleet[ships_activated].x = 0.0; 
 		fleet[ships_activated].y = PORT_BMP_H - 1; 
 		fleet[ships_activated].active = true;
@@ -736,15 +726,6 @@ int i, j;
 		draw_sprite_h_flip(places[i].enter_trace, places[7 - i].enter_trace,0,0);
 		draw_sprite_h_flip(places[i].exit_trace, places[7 - i].exit_trace,0,0);
 	}	
-}
-
-
-void mark_label(BITMAP * boat)
-{
-
-	int color_assigned = 255 - (ships_activated * 10);
-	rectfill(boat, 5,7, 12, 14, makecol(0,0, color_assigned));
-
 }
 
 int random_in_range(int min_x, int max_x)
