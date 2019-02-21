@@ -3,12 +3,12 @@
 #include <allegro.h>
 
 #define XWIN			1400		// width monitor
-#define YWIN			700			// height monitor
+#define YWIN			900			// height monitor
 #define PERIOD			20			// in ms
 #define DLINE			15			// in ms
 #define PRIO			10			// priority level
 #define AUX_THREAD 		4
-#define MAX_THREADS		15			
+#define MAX_THREADS		8			
 #define MAX_SHIPS		MAX_THREADS - AUX_THREAD			// max number of ship MUST BE LOWER THAN 30
 #define FPS				200.0		
 #define FRAME_PERIOD	(1 / FPS)
@@ -26,10 +26,10 @@
 //------------------------------------------------------------------------------
 #define XSHIP			18			// width dimension of the ship  
 #define YSHIP			54			// height dimension of the ship
-#define MIN_P_TIME		50000			// min ship parking time, in ms
-#define	MAX_P_TIME		50000		// max ship parking time, in ms
+#define MIN_P_TIME		1000			// min ship parking time, in ms
+#define	MAX_P_TIME		30000		// max ship parking time, in ms
 #define MIN_VEL			3			// minimum speed
-#define	MAX_VEL			9			// maximum speed
+#define	MAX_VEL			3			// maximum speed
 
 //-----------------------------------------------------------------------------
 // GLOBAL CONSTANTS related to the radar

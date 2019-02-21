@@ -484,8 +484,8 @@ void init(void)
 	fill_places();
 
 	enter_trace[0] = load_bitmap("e1_c.bmp", NULL);
-	enter_trace[1] = load_bitmap("e2_c.bmp", NULL);
-	enter_trace[2] = load_bitmap("e3_c.bmp", NULL);
+	enter_trace[1] = load_bitmap("e3_c.bmp", NULL);
+	enter_trace[2] = load_bitmap("e2_c.bmp", NULL);
 	
 	pthread_mutex_init(&mutex_rr, NULL);
 	pthread_mutex_init(&mutex_p, NULL);
@@ -548,9 +548,11 @@ bool active;
 				printf("reassigned %d\n", i);
 				pthread_mutex_lock(&mutex_fleet);
 				fleet[i].parking = false;
-				fleet[i].x = 0.0;
+				fleet[i].traj_grade = 3 * M_PI / 2;
+				fleet[i].x = 450 * (i % 3);
 				fleet[i].y = PORT_BMP_H - 1;
 				fleet[i].active = true;
+				fleet[i].vel = MIN_VEL;
 				pthread_mutex_unlock(&mutex_fleet);
 
 				pthread_mutex_lock(&mutex_route);

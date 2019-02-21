@@ -76,6 +76,7 @@ const int id = get_task_index(arg);
 			{	
 				if (!mytrace_computed)
 				{
+					i = 0;
 					guard_index = compute_mytrace(ship_id, is_odd, mytrace, cur_trace, YGUARD_POS);
 					mytrace_computed = true;
 				}
@@ -248,7 +249,7 @@ int index_objective;
 	index_objective =  find_index(mytrace, obj);
 	return index_objective;
 }
- 
+
 void reverse_array(pair trace[X_PORT * Y_PORT], int last_index)
 {
 int i;
