@@ -45,6 +45,9 @@ void free_trace(int ship);
 //	USER FUNCTIONS
 //------------------------------------------------------------------------------
 int click_place(int offset, int delta, int l_x, int r_x);
+int find_parked();
+void woke_up();
+void add_parking_time();
 
 //------------------------------------------------------------------------------
 //	AUXILIAR FUNCTIONS
@@ -59,14 +62,6 @@ void * user_task(void * arg)
 {   
 char scan;
 int time_passed;
-int pos = -1;
-int ship_index = -1;
-int half_num_parking = PLACE_NUMBER / 2;
-int delta = 28;
-int offset = 19;
-int l_x = 121;
-int r_x = PORT_BMP_W - l_x - delta - (half_num_parking - 1) * (offset + delta);
-bool is_parked = false;
 struct timespec now;
 struct timespec w_time;
 bool c_end = false;
@@ -86,54 +81,12 @@ const int id = get_task_index(arg);
 
 		if (mouse_b == 1)
 		{
-			pos = click_place(offset, delta, l_x, r_x);
-
-			if (pos>= 0)
-			{
-				pthread_mutex_lock(&mutex_p);
-				ship_index = places[pos].ship_id;
-				pthread_mutex_unlock(&mutex_p);
-				
-				pthread_mutex_lock(&mutex_fleet);
-				is_parked = fleet[ship_index].parking;
-				pthread_mutex_unlock(&mutex_fleet);
-
-				if (ship_index >= 0 && is_parked)
-				{
-					pthread_mutex_lock(&mutex_fleet);
-					fleet[ship_index].parking = false;
-					pthread_mutex_unlock(&mutex_fleet);
-
-					printf("ship %d woke up\n", ship_index);
-				}
-			}
-
+			woke_up();
 		}
 
 		if (mouse_b == 2)
 		{
-			pos = click_place(offset, delta, l_x, r_x);
-
-			if (pos>= 0)
-			{
-				pthread_mutex_lock(&mutex_p);
-				ship_index = places[pos].ship_id;
-				pthread_mutex_unlock(&mutex_p);
-
-				pthread_mutex_lock(&mutex_fleet);
-				is_parked = fleet[ship_index].parking;
-				pthread_mutex_unlock(&mutex_fleet);
-
-				if (ship_index >= 0 && is_parked)
-				{
-					pthread_mutex_lock(&mutex_fleet);
-					time_add_ms(&fleet[ship_index].p_time, 200);
-					printf("ship %d more 200ms, actual time %ld\n", ship_index, 
-											(fleet[ship_index].p_time).tv_sec);
-					pthread_mutex_unlock(&mutex_fleet);
-				}
-			}
-
+			add_parking_time();
 		}
 
 		scan = 0;
@@ -173,6 +126,64 @@ const int id = get_task_index(arg);
 	}
 
 return NULL;
+}
+
+int find_parked()
+{
+int pos = -1;
+int ship_index = -1;
+int half_num_parking = PLACE_NUMBER / 2;
+int delta = 28;
+int offset = 19;
+int l_x = 121;
+int r_x = PORT_BMP_W - l_x - delta - (half_num_parking - 1) * (offset + delta);
+bool is_parked = false;
+
+pos = click_place(offset, delta, l_x, r_x);
+
+	if (pos>= 0)
+	{
+		pthread_mutex_lock(&mutex_p);
+		ship_index = places[pos].ship_id;
+		pthread_mutex_unlock(&mutex_p);
+
+		pthread_mutex_lock(&mutex_fleet);
+		is_parked = fleet[ship_index].parking;
+		pthread_mutex_unlock(&mutex_fleet);
+
+		if (is_parked)
+		{
+			return ship_index;
+		}
+	}
+	return -1;
+}
+void woke_up()
+{
+int ship_index = find_parked();
+	
+	if (ship_index > -1)
+	{
+		pthread_mutex_lock(&mutex_fleet);
+		fleet[ship_index].parking = false;
+		pthread_mutex_unlock(&mutex_fleet);
+
+		printf("ship %d woke up\n", ship_index);
+	}
+}
+
+void add_parking_time()
+{
+int ship_index = find_parked();
+
+	if (ship_index > -1)
+	{
+		pthread_mutex_lock(&mutex_fleet);
+		time_add_ms(&fleet[ship_index].p_time, 200);
+		printf("ship %d more 200ms, actual time %ld\n", ship_index, 
+							(fleet[ship_index].p_time).tv_sec);
+		pthread_mutex_unlock(&mutex_fleet);
+	}
 }
 
 void * radar_task(void * arg)
