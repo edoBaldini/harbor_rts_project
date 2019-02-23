@@ -97,19 +97,26 @@ typedef struct place
 // GLOBAL VARIABLES
 //------------------------------------------------------------------------------
 extern BITMAP * sea;
+extern BITMAP * enter_trace[3];
 
+extern struct place places[PLACE_NUMBER];
 extern struct ship fleet[MAX_SHIPS];
 extern struct route routes[MAX_SHIPS];
 
+extern int ships_activated;
 extern int request_access[MAX_SHIPS];
 
 extern bool reply_access[MAX_SHIPS];
 extern bool end;
+extern bool show_routes;
 extern pthread_mutex_t mutex_fleet;
 extern pthread_mutex_t mutex_route;
 extern pthread_mutex_t mutex_rr;
+extern pthread_mutex_t mutex_p;
 extern pthread_mutex_t mutex_sea;
 extern pthread_mutex_t mutex_end;
+extern pthread_mutex_t mutex_s_route;
+
 
 //------------------------------------------------------------------------------
 //	COMMON FUNCTIONS
@@ -117,5 +124,9 @@ extern pthread_mutex_t mutex_end;
 float degree_rect(float x1, float y1, float x2, float y2);
 int random_in_range(int min_x, int max_x);
 pair make_pair(int x, int y);
+void mark_label(BITMAP * boat);
+
+void * user_task(void * arg);
+void * ship_task(void * arg);
 
 #endif
