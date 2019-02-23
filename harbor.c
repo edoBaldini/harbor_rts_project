@@ -335,6 +335,7 @@ void init(void)
 
 	set_color_depth(16);
 	set_gfx_mode(GFX_AUTODETECT_WINDOWED, XWIN, YWIN,0,0);
+	set_keyboard_rate(0, 0);
 	enable_hardware_cursor();
 	show_mouse(screen);
 	

@@ -8,9 +8,6 @@
 void * user_task(void * arg)
 {   
 char scan;
-int time_passed;
-struct timespec now;
-struct timespec w_time;
 bool c_end = false;
 
 // Task private variables
@@ -23,47 +20,18 @@ const int id = get_task_index(arg);
 		c_end = end;
 		pthread_mutex_unlock(&mutex_end);
 
-		clock_gettime(CLOCK_MONOTONIC, &now);
-		time_passed = time_cmp(now, w_time);
-
-		if (mouse_b == 1)
+		switch (mouse_b)
 		{
-			woke_up();
+			case 1:
+					woke_up();
+					break;
+
+			case 2:
+					add_parking_time();
+					break;
 		}
 
-		if (mouse_b == 2)
-		{
-			add_parking_time();
-		}
-
-		scan = 0;
-		if (keypressed()) 
-		{
-			scan = readkey() >> 8;
-		}
-
-		if (scan == KEY_ENTER && time_passed >= 0)
-		{
-			clock_gettime(CLOCK_MONOTONIC, &w_time);
-			time_add_ms(&w_time, 1500);
-
-			init_ship();
-		}
-
-		if (scan == KEY_SPACE)
-		{
-			pthread_mutex_lock(&mutex_s_route);
-			show_routes = (show_routes) ? false : true;
-			pthread_mutex_unlock(&mutex_s_route);
-		}
-
-		if (scan == KEY_ESC)
-		{
-			pthread_mutex_lock(&mutex_end);
-			end = true;
-			pthread_mutex_unlock(&mutex_end);
-			c_end = true;
-		}
+		botton_pressed();
 
 		if (deadline_miss(id))
 		{   
@@ -73,6 +41,37 @@ const int id = get_task_index(arg);
 	}
 
 return NULL;
+}
+
+void botton_pressed()
+{
+char scan = 0;
+
+	if (keypressed()) 
+	{
+		scan = readkey() >> 8;
+	}
+	
+	switch (scan)
+	{
+		case KEY_ENTER:
+				init_ship();
+				break;
+
+		case KEY_SPACE:
+				
+				pthread_mutex_lock(&mutex_s_route);
+				show_routes = (show_routes) ? false : true;
+				pthread_mutex_unlock(&mutex_s_route);
+				break;
+
+		case KEY_ESC:
+					
+				pthread_mutex_lock(&mutex_end);
+				end = true;
+				pthread_mutex_unlock(&mutex_end);
+				break;
+	}	
 }
 
 int find_parked()
