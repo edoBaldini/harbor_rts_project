@@ -112,19 +112,43 @@ const int id = get_task_index(arg);
 		cur_req = request_access[i];
 		pthread_mutex_unlock(&mutex_rr);
 		
+		/*switch (cur_req)
+		{
+			case Y_PORT:
+					cur_repl = (cur_repl) ? cur_repl : access_port;
+					access_port = false;
+					break;
+
+			case Y_PLACE:
+					if (access_place && !enter_trace[i])
+					{	
+						enter_trace[i] = assign_trace(i);
+						cur_repl = enter_trace[i];
+						access_port = enter_trace[i];
+						access_place = !enter_trace[i];
+						ship = (enter_trace[i]) ? i : ship;
+						if (enter_trace[i])
+							printf("ship %d PLACE assigned\n", i);
+					}
+
+			case 1:
+					if (ship == i)
+					{
+						access_place = true;
+						ship = -1;
+					}
+
+
+			case Y_EXIT:
+					try_to_assign_exit();
+			case -1:
+					free_ship();
+		}*/
 		if (cur_req == Y_PORT)
 		{
-			if (access_port)
-			{
-				printf("ship %d enters to the port\n", i);
-				pthread_mutex_lock(&mutex_route);
-				routes[i].x = X_PORT;
-				routes[i].y = Y_PORT;
-				pthread_mutex_unlock(&mutex_route);
-				cur_repl = true;
-				access_port = false;
-
-			}
+			//printf("ship %d enters to the port\n", i);
+			cur_repl = (cur_repl) ? cur_repl : access_port;
+			access_port = false;
 		}
 		
 		if (cur_req == Y_PLACE)
@@ -132,34 +156,32 @@ const int id = get_task_index(arg);
 			if (access_place && !enter_trace[i])
 			{	
 				enter_trace[i] = assign_trace(i);
-
+				cur_repl = enter_trace[i];
+				access_port = enter_trace[i];
+				access_place = !enter_trace[i];
+				ship = (enter_trace[i]) ? i : ship;
 				if (enter_trace[i])
-				{
 					printf("ship %d PLACE assigned\n", i);
-					cur_repl = true;
-					access_place = false;
-					access_port = true;
-					ship = i;
-				}
+				
 			}
 		}
-
+// POTRESTI FARE NELLO SWITCH DI CONTROLLARE SOLO YPORT E YPLACE E FARE FUNZIONI ESTERNE CHE CONTROLLINO IL CUR_REQ CHE TANTO È GLOBALE
 		if (cur_req == 1 && ship == i)
 		{	
-			cur_req = Y_PLACE;
 			access_place = true;
 			ship = -1;
 		}
 
-		if (cur_req == Y_EXIT && access_place && !exit_trace[i])
-		{ 
-			exit_trace[i] = assign_exit(i);
-			if (exit_trace[i])
+		if (cur_req == Y_EXIT)
+		{
+			if(access_place && !exit_trace[i])
 			{
+				exit_trace[i] = assign_exit(i);
+				cur_repl = exit_trace[i];
+				access_place = !exit_trace[i];
 				printf("ship %d exiting\n", i);
-				cur_repl = true;
-				access_place = false;
 			}
+			
 		}
 
 		if (cur_req == -1 )
@@ -417,10 +439,20 @@ int r_col = makecol(255, 255, 255);
 //------------------------------------------------------------------------------
 // FUNCTIONS FOR CONTROLLER
 //------------------------------------------------------------------------------
+void fill_trace(int ship, int i, BITMAP * trace)
+{
+	pthread_mutex_lock(&mutex_route);
+	routes[ship].trace = trace;
+	routes[ship].y = Y_PLACE - YSHIP;
+	routes[ship].odd = (i < 4);
+	pthread_mutex_unlock(&mutex_route);
+}
+
 bool assign_trace(int ship)
 {
 int i = random_in_range(0, PLACE_NUMBER -1);
 bool available;
+BITMAP * enter_trace;
 
 	pthread_mutex_lock(&mutex_p);
 	available = places[i].available;
@@ -428,16 +460,14 @@ bool available;
 
 		if (available)
 		{	
-			pthread_mutex_lock(&mutex_route);
-			routes[ship].trace = places[i].enter_trace;
-			routes[ship].y = Y_PLACE - YSHIP;
-			routes[ship].odd = (i < 4);
-			pthread_mutex_unlock(&mutex_route);
-
 			pthread_mutex_lock(&mutex_p);
 			places[i].available = false;
 			places[i].ship_id = ship;
+			enter_trace = places[i].enter_trace;
 			pthread_mutex_unlock(&mutex_p);
+
+			fill_trace(ship, i, enter_trace);
+
 			return true;
 		}
 
@@ -448,17 +478,16 @@ bool assign_exit(int ship)
 {
 int i;
 int ship_assigned;
+BITMAP * exit_trace;
 	for(i = 0; i < PLACE_NUMBER; i++)
 	{
 		pthread_mutex_lock(&mutex_p);
 		ship_assigned = places[i].ship_id;
+		exit_trace = places[i].exit_trace;
 		pthread_mutex_unlock(&mutex_p);
 		if (ship_assigned == ship)
 		{
-			pthread_mutex_lock(&mutex_route);
-			routes[ship].trace = places[i].exit_trace;
-			routes[ship].y = Y_PORT;
-			pthread_mutex_unlock(&mutex_route);
+			fill_trace(ship, i, exit_trace);
 			return true;
 		}
 	}
