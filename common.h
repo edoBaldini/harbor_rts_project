@@ -66,7 +66,6 @@ typedef struct ship
 	float x, y;
 	float traj_grade; 
 	float vel;
-	BITMAP * boat;
 	struct timespec p_time;
 	bool parking;
 	bool active;
@@ -124,7 +123,6 @@ extern pthread_mutex_t mutex_s_route;
 float degree_rect(float x1, float y1, float x2, float y2);
 int random_in_range(int min_x, int max_x);
 pair make_pair(int x, int y);
-void mark_label(BITMAP * boat);
 
 void * user_task(void * arg);
 void * ship_task(void * arg);

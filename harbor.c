@@ -31,7 +31,7 @@ pthread_mutex_t mutex_s_route;
 //------------------------------------------------------------------------------
 //	RADAR FUNCTIONS
 //------------------------------------------------------------------------------
-bool check_ship(int j, int color);
+bool check_ship(int color);
 float degree_fix(float grade);
 
 //------------------------------------------------------------------------------
@@ -47,7 +47,6 @@ void free_trace(int ship);
 void * ship_task(void * arg);
 void init(void);
 void fill_places();
-void mark_label(BITMAP * boat);
 
 
 
@@ -60,7 +59,7 @@ bool c_end = false;
 float a = 0.f;
 float alpha;
 int d = 0;
-int x, y, j;
+int x, y;
 int color;
 int r_col = makecol(255, 255, 255);
 const int id = get_task_index(arg);
@@ -81,22 +80,20 @@ const int id = get_task_index(arg);
 			pthread_mutex_lock(&mutex_sea);
 			color = getpixel(sea, x, y);
 			pthread_mutex_unlock(&mutex_sea);
-			for (j = 0; j <= MAX_SHIPS; j++)
-			{
-				found = check_ship(j, color);
+			
+			found = check_ship(color);
 
-				if (found)
-				{
-					pthread_mutex_lock(&mutex_radar);
-					putpixel(radar, (x / 2), (y / 2), r_col);
-					pthread_mutex_unlock(&mutex_radar);
-			   }
+			if (found)
+			{
+				pthread_mutex_lock(&mutex_radar);
+				putpixel(radar, (x / 2), (y / 2), r_col);
+				pthread_mutex_unlock(&mutex_radar);
 			}
 		}
 //from the formula L = pi * r *a / 180 I can guarantee that, the circumference
 //arc len is less than the width label in this way the ships will be always seen
-		a += 2; 
-		if (a == 360.0)
+		a += 1.9; 
+		if (a >= 360.0)
 		{
 			a = 0.0;
 			pthread_mutex_lock(&mutex_radar);
@@ -224,8 +221,8 @@ const int id = get_task_index(arg);
 void * display(void *arg)
 {
 BITMAP * port_bmp;
-BITMAP * ship_cur;
 BITMAP * routes_bmp;
+BITMAP * boat;
 int i, e1, e2, e3;
 float x_cur, y_cur, g_cur;
 int counter = 0;
@@ -237,7 +234,7 @@ pair cur_fleet[MAX_SHIPS];
 	clear_bitmap(routes_bmp);
 
 	port_bmp = load_bitmap("port.bmp", NULL);
-
+	boat = load_bitmap("ship_c.bmp", NULL);
 	// Task private variables
 	const int id = get_task_index(arg);
 	set_activation(id);
@@ -254,13 +251,12 @@ pair cur_fleet[MAX_SHIPS];
 			x_cur = fleet[i].x;
 			y_cur = fleet[i].y;
 			g_cur = fleet[i].traj_grade;
-			ship_cur = fleet[i].boat;
 			parked[i] = fleet[i].parking;
 			pthread_mutex_unlock(&mutex_fleet);
 			cur_fleet[i].x = x_cur;
 			cur_fleet[i].y = y_cur;
 			pthread_mutex_lock(&mutex_sea);
-			rotate_sprite(sea, ship_cur, x_cur - (XSHIP / 2 ), y_cur, itofix(degree_fix(g_cur)+64));
+			rotate_sprite(sea, boat, x_cur - (XSHIP / 2 ), y_cur, itofix(degree_fix(g_cur)+64));
 			pthread_mutex_unlock(&mutex_sea);
 		}
 		pthread_mutex_lock(&mutex_sea);
@@ -315,12 +311,6 @@ pair cur_fleet[MAX_SHIPS];
 		wait_for_activation(id);
 
 	}
-
-	for (i = 0; i < ships_activated; ++i)
-	{
-		destroy_bitmap(fleet[i].boat);
-	}
-		
 
 	for (i = 0; i < PLACE_NUMBER; ++i)
 	{
@@ -400,10 +390,10 @@ int main()
 // FUNCTIONS FOR RADAR
 //------------------------------------------------------------------------------
 
-bool check_ship(int j, int color)
+bool check_ship(int color)
 {
-	int  actual_color = 255 - (j * 10);
-	return color == makecol(0,0, actual_color);
+	int  blue = makecol(0,0, 255);
+	return color == blue;
 }
 
 float degree_rect(float x1, float y1, float x2, float y2)
@@ -418,33 +408,6 @@ float degree_fix(float grade)
 {
 	int new_grade = (grade > 0 ? grade : (2 * M_PI + grade)) * 360 / (2 * M_PI); //from radiants to degree 360
 	return (new_grade * 256 / 360);
-}
-
-
-//------------------------------------------------------------------------------
-// FUNCTIONS FOR USER
-//------------------------------------------------------------------------------
-
-int click_place(int offset, int delta, int l_x, int r_x)
-{
-int i, space;
-int half_num_parking = PLACE_NUMBER / 2;
-
-	if (mouse_y <= Y_PLACE && mouse_y >= Y_PLACE - YSHIP)
-	{
-		for (i = 0; i < half_num_parking; ++i)
-		{
-			space = i * (offset + delta);
-			if(mouse_x <= l_x + space + delta && mouse_x >= l_x + space)
-				return i;
-
-			else if (mouse_x <= r_x + space + delta && mouse_x >= r_x + space)
-					return i + half_num_parking;
-
-		}
-		return -1;
-	}
-	else return -1;
 }
 
 //------------------------------------------------------------------------------
@@ -547,15 +510,6 @@ int i, j;
 		draw_sprite_h_flip(places[i].enter_trace, places[7 - i].enter_trace,0,0);
 		draw_sprite_h_flip(places[i].exit_trace, places[7 - i].exit_trace,0,0);
 	}	
-}
-
-
-void mark_label(BITMAP * boat)
-{
-
-	int color_assigned = 255 - (ships_activated * 10);
-	rectfill(boat, 5,7, 12, 14, makecol(0,0, color_assigned));
-
 }
 
 int random_in_range(int min_x, int max_x)

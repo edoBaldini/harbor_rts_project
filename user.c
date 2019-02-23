@@ -144,11 +144,9 @@ bool active;
 		printf("ships_activated  %d  MAX_SHIPS %d\n", ships_activated, MAX_SHIPS);
 
 		pthread_mutex_lock(&mutex_fleet);
-		fleet[ships_activated].boat = create_bitmap(XSHIP, YSHIP);
-		fleet[ships_activated].boat = load_bitmap("ship_c.bmp", NULL);
 		fleet[ships_activated].parking = false;
 		fleet[ships_activated].traj_grade = 3 * M_PI / 2;
-		mark_label(fleet[ships_activated].boat);
+
 		fleet[ships_activated].x = 0.0; 
 		fleet[ships_activated].y = PORT_BMP_H - 1; 
 		fleet[ships_activated].active = true;
@@ -196,4 +194,26 @@ bool active;
 			}
 		}
 	}
+}
+
+int click_place(int offset, int delta, int l_x, int r_x)
+{
+int i, space;
+int half_num_parking = PLACE_NUMBER / 2;
+
+	if (mouse_y <= Y_PLACE && mouse_y >= Y_PLACE - YSHIP)
+	{
+		for (i = 0; i < half_num_parking; ++i)
+		{
+			space = i * (offset + delta);
+			if(mouse_x <= l_x + space + delta && mouse_x >= l_x + space)
+				return i;
+
+			else if (mouse_x <= r_x + space + delta && mouse_x >= r_x + space)
+					return i + half_num_parking;
+
+		}
+		return -1;
+	}
+	else return -1;
 }
