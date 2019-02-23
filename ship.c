@@ -85,11 +85,11 @@ const int id = get_task_index(arg);
 
 				else if (move)
 				{
-					i = follow_track_frw(ship_id, i, mytrace, guard_index, move, cur_trace);
+					i = follow_track_frw(ship_id, XGUARD_POS, YGUARD_POS, move, cur_trace);
 				}
 				else
 				{
-					i = follow_track_frw(ship_id, i, mytrace, i, move, cur_trace);	
+					i = follow_track_frw(ship_id, XGUARD_POS, YGUARD_POS, move, cur_trace);	
 				}
 			}
 
@@ -111,7 +111,7 @@ const int id = get_task_index(arg);
 
 				else 
 				{
-					i = follow_track_frw(ship_id, i, mytrace, port_index, true, cur_trace);
+					i = follow_track_frw(ship_id, X_PORT, Y_PORT, true, cur_trace);
 				}			
 			}
 
@@ -159,7 +159,7 @@ const int id = get_task_index(arg);
 				else
 				{
 
-					i = follow_track_frw(ship_id, i, mytrace, place_index, true, cur_trace);
+					i = follow_track_frw(ship_id, X_PORT, Y_PLACE, true, cur_trace);
 				}
 
 			}
@@ -176,7 +176,7 @@ const int id = get_task_index(arg);
 
 				else if (cur_ship.x > EPSILON + YSHIP && cur_ship.x < PORT_BMP_W - EPSILON - YSHIP)
 				{
-					i = follow_track_frw(ship_id, i, mytrace, exit_index, true, cur_trace);
+					i = follow_track_frw(ship_id, X_PORT, Y_EXIT, true, cur_trace);
 				}
 
 				if (check_position(cur_ship.y, Y_PORT - XSHIP) && cur_req == Y_EXIT)
@@ -320,6 +320,27 @@ bool check_position(float y_ship, int y)
 	return fabs(y_ship - y) <= EPSILON;
 }
 
+float update_vel(float vel, int color, float des)
+{
+	vel = (color == 0)? vel + 0.001 : vel - 0.001;
+
+	if (vel > MAX_VEL)
+	{
+		vel = MAX_VEL;
+	}
+
+	if (vel < MIN_VEL)
+	{
+		vel = MIN_VEL;
+	}
+
+	if (vel > des)
+	{
+		vel = des;
+	}
+
+	return vel;
+}
 
 void grade_filter(int id, int i, pair mytrace[X_PORT * Y_PORT])
 {
@@ -330,61 +351,69 @@ fleet[id].traj_grade = grade;
 
 }
 
-
-int follow_track_frw(int id, int i, pair mytrace[X_PORT * Y_PORT], 
-										int last_index, bool move, BITMAP * cur_trace)
+void grade_filter_b(int id, float x, float y)
 {
-	float p = 0.03;
-	float des;
-	float acc;
-	float d_obj;
-	float c_vel;
-	int red = makecol(255, 0, 0);
-	int index;
+//float p = powf(M_E,(-0.115129 * PERIOD));
+float p = 0.03;
+float grade = p * (degree_rect(fleet[id].x, fleet[id].y, x,
+						y)) + (1 - p) * (fleet[id].traj_grade);
+fleet[id].traj_grade = grade;
 
-	pthread_mutex_lock(&mutex_fleet);
-	c_vel = fleet[id].vel;
-	d_obj = distance_vector(fleet[id].x, fleet[id].y, mytrace[last_index].x, 
-												mytrace[last_index].y);
+}
+
+int follow_track_frw(int id, int objx, int objy, bool move, BITMAP * cur_trace)
+{
+float vel, velx, vely;
+float x, y;
+float des;
+float alpha = (-1) * (M_PI / 2); 
+float p = 0.6;
+int red = makecol(255, 0, 0);
+int color;
 	
-	c_vel = ((d_obj / 2) * p < c_vel) ? (d_obj / 2) * p : c_vel;
-	c_vel = (c_vel > MAX_VEL) ? MAX_VEL: c_vel;
-
-	fleet[id].vel = (fleet[id].vel < c_vel) ? fleet[id].vel: c_vel;
-
-	if (getpixel(cur_trace, mytrace[i].x, mytrace[i].y) == red)
+	des = fabs(objy - fleet[id].y + (YSHIP / 2 )) / 2;
+	
+	if(id ==1)
 	{
-		fleet[id].vel -= 0.03;
-		fleet[id].vel = (fleet[id].vel < MIN_VEL)? fleet[id].vel + MIN_VEL: fleet[id].vel;
+		printf("vel %f\n", fleet[id].vel);
+		printf("%f\n", des);
 	}
 
-	else 
+	while (alpha < (M_PI / 2))
 	{
-		fleet[id].vel += 0.03;
+		velx = fleet[id].vel * cos(fleet[id].traj_grade + alpha);
+		vely = fleet[id].vel * sin(fleet[id].traj_grade + alpha);
+
+		x = fleet[id].x + velx * PERIOD;
+		y = fleet[id].y + vely * PERIOD;
+		vel = fleet[id].vel;
+
+		color = getpixel(cur_trace, x, y);
+		if (color == 0 || color == red)
+		{
+			fleet[id].vel = update_vel(vel, color, des);
+			if (move)
+			{
+				grade_filter_b(id, x, y);
+				fleet[id].x = p * x + (1 - p) * fleet[id].x;
+				fleet[id].y = p * y + (1 - p) * fleet[id].y;
+				break;
+			}
+			else
+			{
+				fleet[id].x = p * fleet[id].x + (1 - p) * fleet[id].x;
+				fleet[id].y = p * fleet[id].y + (1 - p) * fleet[id].y;
+				break;				
+			}
+		}
+
+		alpha += 0.0001;
 	}
-
-	des = fleet[id].vel*PERIOD;
-	acc = distance_vector(fleet[id].x, fleet[id].y, mytrace[i].x, mytrace[i].y);
-
-	while (des > acc)
-	{
-		i += 1;
-		acc += distance_vector(fleet[id].x, fleet[id].y, mytrace[i].x, 
-																mytrace[i].y);
-	}
-
-	index = (i > last_index) ? last_index: i;
-	fleet[id].x = p * (mytrace[index].x ) + (1 - p) * (fleet[id].x);
-	fleet[id].y = p * (mytrace[index].y ) + (1 - p) * (fleet[id].y);
-
-	if (move)
-		grade_filter(id, index, mytrace);
 
 	pthread_mutex_unlock(&mutex_fleet);
 	
 	return index;
 }
-
 void rotate90_ship(int id, float x_cur, int y1, int y2)
 {
 float aux = 10000 / PERIOD;

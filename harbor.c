@@ -385,6 +385,16 @@ ship cur_ship;
 			pthread_mutex_lock(&mutex_sea);
 			rotate_sprite(sea, boat, cur_ship.x - (XSHIP / 2 ), cur_ship.y, itofix(degree_fix(cur_ship.traj_grade) + 64));
 			pthread_mutex_unlock(&mutex_sea);
+		/*
+			float alpha = (-1) * (M_PI / 2);
+			int d = sqrt(((XSHIP / 2) * (XSHIP / 2)) + ((YSHIP / 2) * (YSHIP / 2)));
+			while (alpha < (M_PI / 2))
+			{
+				float x = (fleet[i].x) + (1) * cos(fleet[i].traj_grade + alpha);
+				float y = (fleet[i].y) + (1) * sin(fleet[i].traj_grade + alpha);
+				alpha += 0.001;
+				putpixel(sea, x, y, 0);
+			}*/
 		}
 		pthread_mutex_lock(&mutex_sea);
 		blit(sea, routes_bmp, 0, 0, 0,0,sea->w, sea->h);
@@ -509,8 +519,8 @@ bool active;
 		pthread_mutex_lock(&mutex_fleet);
 		fleet[ships_activated].parking = false;
 		fleet[ships_activated].traj_grade = 3 * M_PI / 2;
-		fleet[ships_activated].x = 0.0; 
-		fleet[ships_activated].y = PORT_BMP_H - 1; 
+		fleet[ships_activated].x = (index * X_PORT); 
+		fleet[ships_activated].y = PORT_BMP_H - YSHIP; 
 		fleet[ships_activated].active = true;
 		fleet[ships_activated].vel = MIN_VEL;
 		pthread_mutex_unlock(&mutex_fleet);
