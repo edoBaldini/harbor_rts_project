@@ -104,6 +104,7 @@ pos = click_place(offset, delta, l_x, r_x);
 	}
 	return -1;
 }
+
 void woke_up()
 {
 int ship_index = find_parked();
@@ -132,36 +133,49 @@ int ship_index = find_parked();
 	}
 }
 
+void initialize_ship(int i)
+{
+int id = (i > -1)? i : ships_activated;
+int index = (id % 3);
+
+	pthread_mutex_lock(&mutex_fleet);
+	fleet[id].parking = false;
+	fleet[id].traj_grade = 3 * M_PI / 2;
+	fleet[id].x = 450 * (index % 3); 
+	fleet[id].y = PORT_BMP_H - 1; 
+	fleet[id].active = true;
+	fleet[id].vel = MIN_VEL;
+	pthread_mutex_unlock(&mutex_fleet);
+
+	pthread_mutex_lock(&mutex_route);
+	routes[id].x = X_PORT;
+	routes[id].y = Y_PORT;
+	routes[id].trace = enter_trace[index]; 
+	routes[id].odd = (index == 1);
+	pthread_mutex_unlock(&mutex_route);
+
+	if (id == ships_activated)
+	{
+		printf("ships_activated  %d  MAX_SHIPS %d\n", ships_activated, MAX_SHIPS - 1);
+		ships_activated += 1;
+	}
+
+	else
+	{
+		printf("reassigned %d\n", i);
+	}
+
+	task_create(ship_task, PERIOD, DLINE, PRIO);
+}
+
 void init_ship()
 {
 int i;
-int index = (ships_activated % 3);
 bool active;
 
 	if (ships_activated < MAX_SHIPS)
 	{
-		printf("ships_activated  %d  MAX_SHIPS %d\n", ships_activated, MAX_SHIPS);
-
-		pthread_mutex_lock(&mutex_fleet);
-		fleet[ships_activated].parking = false;
-		fleet[ships_activated].traj_grade = 3 * M_PI / 2;
-
-		fleet[ships_activated].x = 0.0; 
-		fleet[ships_activated].y = PORT_BMP_H - 1; 
-		fleet[ships_activated].active = true;
-		fleet[ships_activated].vel = MIN_VEL;
-		pthread_mutex_unlock(&mutex_fleet);
-
-		pthread_mutex_lock(&mutex_route);
-		routes[ships_activated].x = X_PORT;
-		routes[ships_activated].y = Y_PORT;
-		routes[ships_activated].trace = enter_trace[index]; 
-		routes[ships_activated].odd = (index == 1);
-		pthread_mutex_unlock(&mutex_route);
-
-		ships_activated += 1;
-
-		task_create(ship_task, PERIOD, DLINE, PRIO);
+		initialize_ship(-1);
 	}
 	else
 	{
@@ -172,23 +186,7 @@ bool active;
 			pthread_mutex_unlock(&mutex_fleet);
 			if (!active)
 			{
-				printf("reassigned %d\n", i);
-				pthread_mutex_lock(&mutex_fleet);
-				fleet[i].parking = false;
-				fleet[i].traj_grade = 3 * M_PI / 2;
-				fleet[i].x = 450 * (i % 3);
-				fleet[i].y = PORT_BMP_H - 1;
-				fleet[i].active = true;
-				fleet[i].vel = MIN_VEL;
-				pthread_mutex_unlock(&mutex_fleet);
-
-				pthread_mutex_lock(&mutex_route);
-				routes[i].x = X_PORT;
-				routes[i].y = Y_PORT;
-				routes[i].trace = enter_trace[i % 3]; 
-				routes[i].odd = ((i % 3) == 1);
-				pthread_mutex_unlock(&mutex_route);
-
+				initialize_ship(i);
 				break;
 			}
 		}
