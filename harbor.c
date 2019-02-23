@@ -65,8 +65,8 @@ const int id = get_task_index(arg);
 
 		alpha = a * M_PI / 180.f;   // from degree to radiants
 		radar_one_line(alpha);
-
 		a += 1.8; 
+
 		if (a >= 360.0)
 		{
 			a = 0.0;
@@ -326,7 +326,10 @@ void init(void)
 
 	enter_trace[0] = load_bitmap("e1_c.bmp", NULL);
 	enter_trace[1] = load_bitmap("e3_c.bmp", NULL);
-	enter_trace[2] = load_bitmap("e2_c.bmp", NULL);
+	enter_trace[2] =  create_bitmap(PORT_BMP_W, PORT_BMP_H);
+	
+	clear_to_color(enter_trace[2], makecol(255,0,255));
+	draw_sprite_h_flip(enter_trace[2], enter_trace[0],0,0);
 	
 	pthread_mutex_init(&mutex_rr, NULL);
 	pthread_mutex_init(&mutex_p, NULL);

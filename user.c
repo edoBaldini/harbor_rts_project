@@ -158,6 +158,7 @@ int index = (id % 3);
 	{
 		printf("ships_activated  %d  MAX_SHIPS %d\n", ships_activated, MAX_SHIPS - 1);
 		ships_activated += 1;
+		task_create(ship_task, PERIOD, DLINE, PRIO);
 	}
 
 	else
@@ -165,7 +166,6 @@ int index = (id % 3);
 		printf("reassigned %d\n", i);
 	}
 
-	task_create(ship_task, PERIOD, DLINE, PRIO);
 }
 
 void init_ship()
