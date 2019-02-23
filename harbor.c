@@ -33,6 +33,7 @@ pthread_mutex_t mutex_s_route;
 //------------------------------------------------------------------------------
 bool check_ship(int color);
 float degree_fix(float grade);
+void radar_one_line(float alpha);
 
 //------------------------------------------------------------------------------
 //	CONTROLLER FUNCTIONS
@@ -48,20 +49,11 @@ void * ship_task(void * arg);
 void init(void);
 void fill_places();
 
-
-
 void * radar_task(void * arg)
 {   
-
-// Task private variables
-bool found;
 bool c_end = false;
-float a = 0.f;
 float alpha;
-int d = 0;
-int x, y;
-int color;
-int r_col = makecol(255, 255, 255);
+float a = 0.f;
 const int id = get_task_index(arg);
 	set_activation(id);
 
@@ -72,27 +64,9 @@ const int id = get_task_index(arg);
 		pthread_mutex_unlock(&mutex_end);
 
 		alpha = a * M_PI / 180.f;   // from degree to radiants
-		for (d = RMIN; d < RMAX; d += RSTEP)
-		{
-			x = XRAD + d * cos(alpha);
-			y = YRAD - d * sin(alpha);
+		radar_one_line(alpha);
 
-			pthread_mutex_lock(&mutex_sea);
-			color = getpixel(sea, x, y);
-			pthread_mutex_unlock(&mutex_sea);
-			
-			found = check_ship(color);
-
-			if (found)
-			{
-				pthread_mutex_lock(&mutex_radar);
-				putpixel(radar, (x / 2), (y / 2), r_col);
-				pthread_mutex_unlock(&mutex_radar);
-			}
-		}
-//from the formula L = pi * r *a / 180 I can guarantee that, the circumference
-//arc len is less than the width label in this way the ships will be always seen
-		a += 1.9; 
+		a += 1.8; 
 		if (a >= 360.0)
 		{
 			a = 0.0;
@@ -409,6 +383,32 @@ float degree_fix(float grade)
 {
 	int new_grade = (grade > 0 ? grade : (2 * M_PI + grade)) * 360 / (2 * M_PI); //from radiants to degree 360
 	return (new_grade * 256 / 360);
+}
+
+void radar_one_line(float alpha)
+{
+bool found = false;
+float x, y;
+int d, color;
+int r_col = makecol(255, 255, 255);
+
+	for (d = RMIN; d < RMAX; d += RSTEP)
+	{
+		x = XRAD + d * cos(alpha);
+		y = YRAD - d * sin(alpha);
+
+		pthread_mutex_lock(&mutex_sea);
+		color = getpixel(sea, x, y);
+		pthread_mutex_unlock(&mutex_sea);
+		
+		found = check_ship(color);
+		if (found)
+		{
+			pthread_mutex_lock(&mutex_radar);
+			putpixel(radar, (x / 2), (y / 2), r_col);
+			pthread_mutex_unlock(&mutex_radar);
+		}
+	}
 }
 
 //------------------------------------------------------------------------------
