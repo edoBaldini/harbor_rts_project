@@ -38,6 +38,7 @@ void radar_one_line(float alpha);
 //------------------------------------------------------------------------------
 //	CONTROLLER FUNCTIONS
 //------------------------------------------------------------------------------
+void fill_trace(int ship, int i, BITMAP * trace);
 bool assign_trace(int ship);
 bool assign_exit(int ship);
 void free_trace(int ship);
@@ -87,17 +88,87 @@ const int id = get_task_index(arg);
 return NULL;
 }
 
+int access_port(int i, int ship_to_port, int ship_to_place)
+{
+int cur_req;
+bool cur_repl;
+	
+	pthread_mutex_lock(&mutex_rr);
+	cur_repl = reply_access[i];
+	cur_req = request_access[i];
+	pthread_mutex_unlock(&mutex_rr);
+
+	if (ship_to_port == -1)
+	{
+		cur_repl = (cur_req == Y_PORT) || cur_repl;
+		ship_to_port = (cur_repl) ? i : ship_to_port;
+
+		if (ship_to_port == i)
+			printf("ship %d enters to the port\n", i);
+	}
+
+	else if (ship_to_port == i && ship_to_place == i)
+	{
+		ship_to_port = -1;
+	}
+	
+	pthread_mutex_lock(&mutex_rr);
+	reply_access[i] = cur_repl;
+	pthread_mutex_unlock(&mutex_rr);
+	
+	return ship_to_port;
+}
+
+int access_place(int i, int ship_to_place)
+{
+int cur_req;
+bool cur_repl;
+	
+	pthread_mutex_lock(&mutex_rr);
+	cur_repl = reply_access[i];
+	cur_req = request_access[i];
+	pthread_mutex_unlock(&mutex_rr);
+
+	if (ship_to_place == -1)
+	{
+		if (cur_req == Y_PLACE && !cur_repl)
+		{
+			cur_repl = assign_trace(i);
+			ship_to_place = (cur_repl) ? i : ship_to_place;
+			
+			if (cur_repl)
+			{
+				printf("ship %d PLACE assigned\n", i);
+			}
+		}
+
+		if (cur_req == Y_EXIT)
+		{
+			assign_exit(i);
+			ship_to_place = i;
+			cur_repl = true;
+			printf("ship %d exiting\n", i);
+		}
+	}
+		
+	if (ship_to_place == i && (cur_req == 1 || cur_req == -1))
+	{
+		ship_to_place = -1;
+	}
+
+	pthread_mutex_lock(&mutex_rr);
+	reply_access[i] = cur_repl;
+	pthread_mutex_unlock(&mutex_rr);
+
+	return ship_to_place;
+}
+
 void * controller_task(void *arg)
 {
-int ship = -1;
 int i = 0;
-int cur_req;
-bool access_port = true;
-bool access_place = true;
-bool enter_trace[MAX_SHIPS] = {false};
-bool exit_trace[MAX_SHIPS] = {false};
+int ship_to_port = -1;
+int ship_to_place = -1;
 bool c_end = false;
-bool cur_repl;
 const int id = get_task_index(arg);
 	set_activation(id);
 
@@ -107,100 +178,13 @@ const int id = get_task_index(arg);
 		c_end = end;
 		pthread_mutex_unlock(&mutex_end);
 
-		pthread_mutex_lock(&mutex_rr);
-		cur_repl = reply_access[i];
-		cur_req = request_access[i];
-		pthread_mutex_unlock(&mutex_rr);
+		//printf("%d %d %d %d\n", ship_to_port, ship_to_place, reply_access[0], request_access[0]);
+		ship_to_port = access_port(i, ship_to_port, ship_to_place);
+
+		ship_to_place = access_place(i, ship_to_place);
 		
-		/*switch (cur_req)
-		{
-			case Y_PORT:
-					cur_repl = (cur_repl) ? cur_repl : access_port;
-					access_port = false;
-					break;
-
-			case Y_PLACE:
-					if (access_place && !enter_trace[i])
-					{	
-						enter_trace[i] = assign_trace(i);
-						cur_repl = enter_trace[i];
-						access_port = enter_trace[i];
-						access_place = !enter_trace[i];
-						ship = (enter_trace[i]) ? i : ship;
-						if (enter_trace[i])
-							printf("ship %d PLACE assigned\n", i);
-					}
-
-			case 1:
-					if (ship == i)
-					{
-						access_place = true;
-						ship = -1;
-					}
-
-
-			case Y_EXIT:
-					try_to_assign_exit();
-			case -1:
-					free_ship();
-		}*/
-		if (cur_req == Y_PORT)
-		{
-			//printf("ship %d enters to the port\n", i);
-			cur_repl = (cur_repl) ? cur_repl : access_port;
-			access_port = false;
-		}
+		free_trace(i);
 		
-		if (cur_req == Y_PLACE)
-		{
-			if (access_place && !enter_trace[i])
-			{	
-				enter_trace[i] = assign_trace(i);
-				cur_repl = enter_trace[i];
-				access_port = enter_trace[i];
-				access_place = !enter_trace[i];
-				ship = (enter_trace[i]) ? i : ship;
-				if (enter_trace[i])
-					printf("ship %d PLACE assigned\n", i);
-				
-			}
-		}
-// POTRESTI FARE NELLO SWITCH DI CONTROLLARE SOLO YPORT E YPLACE E FARE FUNZIONI ESTERNE CHE CONTROLLINO IL CUR_REQ CHE TANTO È GLOBALE
-		if (cur_req == 1 && ship == i)
-		{	
-			access_place = true;
-			ship = -1;
-		}
-
-		if (cur_req == Y_EXIT)
-		{
-			if(access_place && !exit_trace[i])
-			{
-				exit_trace[i] = assign_exit(i);
-				cur_repl = exit_trace[i];
-				access_place = !exit_trace[i];
-				printf("ship %d exiting\n", i);
-			}
-			
-		}
-
-		if (cur_req == -1 )
-		{
-			cur_req = -2;
-			printf("ship %d frees\n", i);
-			cur_repl = true;
-			enter_trace[i] = false;
-			exit_trace[i] = false;
-			free_trace(i);
-			access_place = true;
-		}
-		
-		pthread_mutex_lock(&mutex_rr);
-		reply_access[i] = cur_repl;
-		request_access[i] = cur_req;
-		pthread_mutex_unlock(&mutex_rr);
-
-
 		i = (i < MAX_SHIPS) ? i + 1 : 0;
 
 		if (deadline_miss(id))
@@ -371,13 +355,6 @@ void init(void)
 
 int main()
 {
-	if (MAX_SHIPS + AUX_THREAD > MAX_THREADS)
-	{
-		printf("too many ships! The max number of ships + the auxiliar thread"
-		" must be lower than max number of thread (32)\n");
-		return 0;
-	}
-
 	init();
 
 	wait_tasks();
@@ -497,16 +474,30 @@ BITMAP * exit_trace;
 void free_trace(int ship)
 {
 int i;
-	for (i = 0; i < PLACE_NUMBER; i++)
+int cur_req;
+	
+	pthread_mutex_lock(&mutex_rr);
+	cur_req = request_access[ship];
+	pthread_mutex_unlock(&mutex_rr);
+	
+	if (cur_req == -1)
 	{
-		pthread_mutex_lock(&mutex_p);
-		if (places[i].ship_id == ship)
+		for (i = 0; i < PLACE_NUMBER; i++)
 		{
-			places[i].available = true;
-			places[i].ship_id = -1;
+			pthread_mutex_lock(&mutex_p);
+			if (places[i].ship_id == ship)
+			{
+				places[i].available = true;
+				places[i].ship_id = -1;
+			}
+			pthread_mutex_unlock(&mutex_p);
 		}
-		pthread_mutex_unlock(&mutex_p);
-	} 
+		cur_req = -2;
+	}
+
+	pthread_mutex_lock(&mutex_rr);
+	request_access[ship] = cur_req ;
+	pthread_mutex_unlock(&mutex_rr); 
 }
 
 //------------------------------------------------------------------------------

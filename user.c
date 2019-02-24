@@ -156,7 +156,7 @@ int index = (id % 3);
 
 	if (id == ships_activated)
 	{
-		printf("ships_activated  %d  MAX_SHIPS %d\n", ships_activated, MAX_SHIPS - 1);
+		printf("ships_activated  %d  MAX_SHIPS %d\n", ships_activated + 1, MAX_SHIPS);
 		ships_activated += 1;
 		task_create(ship_task, PERIOD, DLINE, PRIO);
 	}
