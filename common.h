@@ -123,7 +123,7 @@ extern pthread_mutex_t mutex_s_route;
 float degree_rect(float x1, float y1, float x2, float y2);
 int random_in_range(int min_x, int max_x);
 pair make_pair(int x, int y);
-
+bool check_position(float y_ship, int y);
 void * user_task(void * arg);
 void * ship_task(void * arg);
 
