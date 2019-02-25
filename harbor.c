@@ -469,7 +469,8 @@ ship cur_ship;
 		pthread_mutex_unlock(&mutex_fleet);
 
 		pthread_mutex_lock(&mutex_sea);
-		rotate_sprite(sea, boat, cur_ship.x - (XSHIP / 2 ), cur_ship.y, itofix(degree_fix(cur_ship.traj_grade)+64));
+		rotate_sprite(sea, boat, cur_ship.x - (XSHIP / 2 ), cur_ship.y,
+								 itofix(degree_fix(cur_ship.traj_grade)+64));
 		pthread_mutex_unlock(&mutex_sea);
 	}
 
@@ -504,7 +505,8 @@ ship cur_ship;
 			}
 		}
 				
-		if (cur_ship.y < Y_PORT && routes[i].trace != NULL && !check_position(cur_ship.y, Y_PLACE - YSHIP)) 
+		if (cur_ship.y < Y_PORT && routes[i].trace != NULL &&
+						 !check_position(cur_ship.y, Y_PLACE - YSHIP)) 
 		{
 			counter ++;
 			draw_sprite(screen, routes[i].trace, 0, YSHIP / 2);	

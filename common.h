@@ -8,7 +8,7 @@
 #define DLINE			15			// in ms
 #define PRIO			10			// priority level
 #define AUX_THREAD 		4
-#define MAX_THREADS		14			
+#define MAX_THREADS		5			
 #define MAX_SHIPS		MAX_THREADS - AUX_THREAD			// max number of ship MUST BE LOWER THAN 30
 #define FPS				200.0		
 #define FRAME_PERIOD	(1 / FPS)

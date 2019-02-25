@@ -5,11 +5,14 @@
 #include <stdio.h>
 #include "ptask.h"
 
+static enum state {GUARD, PORT, PLACE, EXIT};
+
 void * ship_task(void * arg)
 {
 int i;
 int ship_id;
 int guard_index, place_index, port_index, exit_index;
+int step = GUARD;
 int cur_req;
 int time_wakeup;
 int color;
@@ -18,12 +21,10 @@ bool first_step, second_step, third_step, fourth_step;
 bool cur_repl;
 bool wait;
 bool termination;
-bool active;
-bool is_parked;
 bool is_odd;
 bool move;
 bool c_end;
-float x_cur, y_cur, g_cur;
+ship cur_ship;
 
 BITMAP * cur_trace;
 pair mytrace[X_PORT * Y_PORT];
@@ -49,15 +50,12 @@ const int id = get_task_index(arg);
 		pthread_mutex_unlock(&mutex_end);
 
 		pthread_mutex_lock(&mutex_fleet);
-		x_cur = fleet[ship_id].x;
-		y_cur = fleet[ship_id].y;
-		g_cur = fleet[ship_id].traj_grade;
-		active = fleet[ship_id].active;
-		is_parked = fleet[ship_id].parking;
-		clock_gettime(CLOCK_MONOTONIC, &now);
-		time_wakeup = time_cmp(now, fleet[ship_id].p_time);
+		cur_ship = fleet[ship_id];
 		pthread_mutex_unlock(&mutex_fleet);
-
+		
+		clock_gettime(CLOCK_MONOTONIC, &now);
+		time_wakeup = time_cmp(now, cur_ship.p_time);
+		
 		pthread_mutex_lock(&mutex_route);
 		cur_trace = routes[ship_id].trace;
 		is_odd = routes[ship_id].odd;
@@ -68,11 +66,11 @@ const int id = get_task_index(arg);
 		cur_req = request_access[ship_id];
 		pthread_mutex_unlock(&mutex_rr);
 
-		if (active)
+		if (cur_ship.active)
 		{
-			move = (check_forward(x_cur, y_cur, g_cur)) ? false: true;
+			move = (check_forward(cur_ship.x, cur_ship.y, cur_ship.traj_grade)) ? false: true;
 
-			if (first_step)
+			if (step == GUARD)
 			{	
 				if (!mytrace_computed)
 				{
@@ -81,14 +79,13 @@ const int id = get_task_index(arg);
 					mytrace_computed = true;
 				}
 
-				if(check_position(y_cur, YGUARD_POS))
+				if(check_position(cur_ship.y, YGUARD_POS))
 				{
 					cur_repl = false;
 					cur_req = Y_PORT;
 					i = guard_index;
-					second_step = true;
-					first_step = false;
 					mytrace_computed = false;
+					step = PORT;
 				}
 
 				else if (move)
@@ -101,22 +98,20 @@ const int id = get_task_index(arg);
 				}
 			}
 
-			if (second_step && cur_repl)
+			if (step == PORT && cur_repl)
 			{
 				if (!mytrace_computed)
 				{
 					port_index = find_index(mytrace, Y_PORT);
 					mytrace_computed = true;
 				}
-				if(check_position(y_cur, Y_PORT))
+				if(check_position(cur_ship.y, Y_PORT))
 				{
 					cur_repl = false;
 					cur_req = Y_PLACE;
 					i = 0;
 					mytrace_computed = false;
-					third_step = true;
-					second_step = false;
-					first_step = false;
+					step = PLACE;
 				}
 
 				else 
@@ -125,7 +120,7 @@ const int id = get_task_index(arg);
 				}			
 			}
 
-			if (third_step && cur_repl)
+			if (step == PLACE && cur_repl)
 			{
 				if (!mytrace_computed)
 				{
@@ -133,17 +128,17 @@ const int id = get_task_index(arg);
 					mytrace_computed = true;
 				}
 
-				if (check_position(y_cur, Y_PLACE + XSHIP))
+				if (check_position(cur_ship.y, Y_PLACE + XSHIP))
 				{
 					cur_req = 1;
 				}
 
-				if(check_position(y_cur, Y_PLACE - YSHIP))
+				if(check_position(cur_ship.y, Y_PLACE - YSHIP))
 				{
 					if (!wait)
 					{	
 						cur_req = 1;
-						is_parked = true;
+						cur_ship.parking = true;
 						pthread_mutex_lock(&mutex_fleet);
 						clock_gettime(CLOCK_MONOTONIC, &fleet[ship_id].p_time);
 						time_add_ms(&fleet[ship_id].p_time, random_in_range(MIN_P_TIME, MAX_P_TIME));
@@ -153,16 +148,15 @@ const int id = get_task_index(arg);
 					}
 					else
 					{
-						if (time_wakeup >= 0 || !is_parked)
+						if (time_wakeup >= 0 || !cur_ship.parking)
 						{
-							is_parked = false;
+							cur_ship.parking = false;
 							cur_repl = false;
 							cur_req = Y_EXIT;
 							wait = false;
 							i = 0;
 							mytrace_computed = false;
-							third_step = false;
-							fourth_step = true;
+							step = EXIT;
 						}
 					}
 				}
@@ -175,45 +169,44 @@ const int id = get_task_index(arg);
 
 			}
 
-			if (fourth_step && cur_repl)
+			if (step == EXIT && cur_repl)
 			{
 				if (!mytrace_computed)
 				{
 					exit_index = compute_mytrace(ship_id, is_odd, mytrace, cur_trace, Y_EXIT);
 					mytrace_computed = true;;
 				}
-				if (y_cur < mytrace[0].y)
-					rotate90_ship(ship_id, x_cur,Y_PLACE, mytrace[0].y + YSHIP);
+				if (cur_ship.y < mytrace[0].y)
+					rotate90_ship(ship_id, cur_ship.x, Y_PLACE, mytrace[0].y + YSHIP);
 
-				else if (x_cur > EPSILON + YSHIP && x_cur < PORT_BMP_W - EPSILON - YSHIP)
+				else if (cur_ship.x > EPSILON + YSHIP && cur_ship.x < PORT_BMP_W - EPSILON - YSHIP)
 				{
 					i = follow_track_frw(ship_id, i, mytrace, exit_index, true, cur_trace);
 				}
 
-				if (check_position(y_cur, Y_PORT - XSHIP) && cur_req == Y_EXIT)
+				if (check_position(cur_ship.y, Y_PORT - XSHIP) && cur_req == Y_EXIT)
 				{
 					cur_req = -1;
 				}
 
-				if (x_cur <= EPSILON + YSHIP|| x_cur >= PORT_BMP_W - EPSILON - YSHIP)
+				if (cur_ship.x <= EPSILON + YSHIP|| cur_ship.x >= PORT_BMP_W - EPSILON - YSHIP)
 				{
-					termination = exit_ship(ship_id, x_cur);
+					termination = exit_ship(ship_id, cur_ship.x);
 					if (termination)
 					{
 						mytrace_computed = false;
 						cur_req = YGUARD_POS;
 						cur_repl = false;
-						first_step = true;
-						fourth_step = false;
-						active = false;
+						step = GUARD;
+						cur_ship.active = false;
 						cur_trace = NULL;
 					}
 				}
 			}	
 
 			pthread_mutex_lock(&mutex_fleet);
-			fleet[ship_id].active = active;
-			fleet[ship_id].parking = is_parked;
+			fleet[ship_id].active = cur_ship.active;
+			fleet[ship_id].parking = cur_ship.parking;
 			pthread_mutex_unlock(&mutex_fleet);
 
 			pthread_mutex_lock(&mutex_rr);
