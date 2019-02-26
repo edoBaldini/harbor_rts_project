@@ -301,6 +301,7 @@ void fill_trace(int ship, int i, BITMAP * trace)
 	pthread_mutex_lock(&mutex_route);
 	routes[ship].trace = trace;
 	routes[ship].odd = (i < 4);
+	routes[ship].index = -1;
 	pthread_mutex_unlock(&mutex_route);
 }
 
