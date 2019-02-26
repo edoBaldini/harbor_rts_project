@@ -9,6 +9,7 @@
 struct place places[PLACE_NUMBER];
 struct ship fleet[MAX_SHIPS];
 struct route routes[MAX_SHIPS];
+struct array_trace m_routes[ENTER_NUMBER + (2 * PLACE_NUMBER)];
 
 BITMAP * sea;
 BITMAP * radar;
@@ -56,6 +57,7 @@ void view_routes();
 //------------------------------------------------------------------------------
 void init(void);
 void fill_places();
+void fill_array_routes();
 
 void * radar_task(void * arg)
 {   
@@ -217,6 +219,8 @@ void init(void)
 	clear_to_color(enter_trace[2], makecol(255,0,255));
 	draw_sprite_h_flip(enter_trace[2], enter_trace[0],0,0);
 	
+	fill_array_routes();
+
 	pthread_mutex_init(&mutex_rr, NULL);
 	pthread_mutex_init(&mutex_p, NULL);
 	pthread_mutex_init(&mutex_fleet, NULL);
@@ -300,7 +304,6 @@ void fill_trace(int ship, int i, BITMAP * trace)
 {
 	pthread_mutex_lock(&mutex_route);
 	routes[ship].trace = trace;
-	routes[ship].y = Y_PLACE - YSHIP;
 	routes[ship].odd = (i < 4);
 	pthread_mutex_unlock(&mutex_route);
 }
@@ -447,6 +450,7 @@ int cur_req;
 			}
 			pthread_mutex_unlock(&mutex_p);
 		}
+		printf("ship %d frees\n", ship);
 		cur_req = -2;
 	}
 
@@ -552,15 +556,36 @@ int i, j;
 	}	
 }
 
+void fill_array_routes()
+{
+int i, j = 0;
+bool is_odd;
+	for (i = 0; i < ENTER_NUMBER; ++i)
+	{
+		is_odd = (i == 1);
+		make_array_trace(enter_trace[i], m_routes[i].trace, is_odd, YGUARD_POS);
+	}
+
+	while (i < ENTER_NUMBER + (2 * PLACE_NUMBER))
+	{
+		is_odd = j < 4;
+		make_array_trace(places[j].enter_trace, m_routes[i].trace, is_odd, Y_PLACE - YSHIP);
+		make_array_trace(places[j].exit_trace, m_routes[i + 1].trace, is_odd, Y_EXIT);
+		i += 2;
+		j += 1;
+	}
+}
+
 int random_in_range(int min_x, int max_x)
 {
 	return rand() % (max_x + 1 - min_x) + min_x;
 }
 
-pair make_pair(int x, int y)
+triple make_triple(float x, float y, int color)
 {
-	pair coordinates;
+	triple coordinates;
 	coordinates.x = x;
 	coordinates.y = y;
+	coordinates.color = color;
 	return coordinates;
 }

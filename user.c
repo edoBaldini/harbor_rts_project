@@ -107,12 +107,14 @@ pos = click_place(offset, delta, l_x, r_x);
 
 void woke_up()
 {
+struct timespec now;
 int ship_index = find_parked();
-	
+
 	if (ship_index > -1)
 	{
+		clock_gettime(CLOCK_MONOTONIC, &now);
 		pthread_mutex_lock(&mutex_fleet);
-		fleet[ship_index].parking = false;
+		fleet[ship_index].p_time = now;
 		pthread_mutex_unlock(&mutex_fleet);
 
 		printf("ship %d woke up\n", ship_index);
@@ -148,8 +150,6 @@ int index = (id % 3);
 	pthread_mutex_unlock(&mutex_fleet);
 
 	pthread_mutex_lock(&mutex_route);
-	routes[id].x = X_PORT;
-	routes[id].y = Y_PORT;
 	routes[id].trace = enter_trace[index]; 
 	routes[id].odd = (index == 1);
 	pthread_mutex_unlock(&mutex_route);

@@ -8,11 +8,12 @@
 #define DLINE			15			// in ms
 #define PRIO			10			// priority level
 #define AUX_THREAD 		4
-#define MAX_THREADS		5			
+#define MAX_THREADS		14			
 #define MAX_SHIPS		MAX_THREADS - AUX_THREAD			// max number of ship MUST BE LOWER THAN 30
 #define FPS				200.0		
 #define FRAME_PERIOD	(1 / FPS)
 #define EPSILON			3.f			// guardian distance to the goal
+#define ENTER_NUMBER	3
 #define	PLACE_NUMBER	8			// number of parking
 #define	SEA_COLOR 		makecol(0,85,165)
 //------------------------------------------------------------------------------
@@ -71,17 +72,21 @@ typedef struct ship
 	bool active;
 }ship;
 
-typedef struct pair
+typedef struct triple
 {
 	float x, y;
-}pair;
+	int color;
+}triple;
+
+typedef struct array_trace
+{
+	triple trace[PORT_BMP_W * PORT_BMP_H];
+}array_trace;
 
 typedef struct route
 {
 	BITMAP * trace;
 	bool odd;
-	float x, y; 
-	float x_b, y_b;
 }route;
 
 typedef struct place 
@@ -101,6 +106,7 @@ extern BITMAP * enter_trace[3];
 extern struct place places[PLACE_NUMBER];
 extern struct ship fleet[MAX_SHIPS];
 extern struct route routes[MAX_SHIPS];
+extern struct array_trace m_routes[ENTER_NUMBER + (2 * PLACE_NUMBER)];
 
 extern int ships_activated;
 extern int request_access[MAX_SHIPS];
@@ -122,9 +128,11 @@ extern pthread_mutex_t mutex_s_route;
 //------------------------------------------------------------------------------
 float degree_rect(float x1, float y1, float x2, float y2);
 int random_in_range(int min_x, int max_x);
-pair make_pair(int x, int y);
+triple make_triple(float x, float y, int color);
 bool check_position(float y_ship, int y);
 void * user_task(void * arg);
 void * ship_task(void * arg);
+void reverse_array(triple trace[], int last_index);
+void make_array_trace(BITMAP * t, triple trace[], bool odd, int req);
 
 #endif
