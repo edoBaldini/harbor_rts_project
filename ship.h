@@ -4,10 +4,9 @@
 //------------------------------------------------------------------------------
 //	SHIP FUNCTIONS
 //------------------------------------------------------------------------------
-int compute_mytrace(int ship_id, bool is_odd, triple mytrace[X_PORT * Y_PORT], 
-																	BITMAP * cur_trace, int obj);
+void compute_mytrace(int ship_id, triple mytrace[X_PORT * Y_PORT], int obj);
 bool check_forward(float x_cur, float y_cur, float g_cur);
-int follow_track_frw(int id, int i, triple mytrace[], int last_index, bool move);
+void follow_track_frw(int id, triple mytrace[], bool move);
 void reverse_array(triple trace[], int last_index);
 void make_array_trace(BITMAP * t, triple trace[], bool odd, int req);
 void rotate90_ship(int id, float x_cur, int y1, int y2);
