@@ -78,11 +78,6 @@ typedef struct triple
 	int color;
 }triple;
 
-typedef struct array_trace
-{
-	triple trace[PORT_BMP_W * PORT_BMP_H];
-}array_trace;
-
 typedef struct route
 {
 	BITMAP * trace;
@@ -106,7 +101,6 @@ extern BITMAP * enter_trace[3];
 extern struct place places[PLACE_NUMBER];
 extern struct ship fleet[MAX_SHIPS];
 extern struct route routes[MAX_SHIPS];
-extern struct array_trace m_routes[ENTER_NUMBER + (2 * PLACE_NUMBER)];
 
 extern int ships_activated;
 extern int request_access[MAX_SHIPS];
@@ -132,7 +126,5 @@ triple make_triple(float x, float y, int color);
 bool check_position(float y_ship, int y);
 void * user_task(void * arg);
 void * ship_task(void * arg);
-void reverse_array(triple trace[], int last_index);
-void make_array_trace(BITMAP * t, triple trace[], bool odd, int req);
 
 #endif
