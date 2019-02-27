@@ -15,5 +15,6 @@ float distance_vector (float x1, float y1, float x2, float y2);
 int find_index(triple mytrace[X_PORT * Y_PORT], int posix);
 void update_rr(int id, int repl, int req);
 bool get_repl(int ship_id);
+bool get_req(int ship_id);
 int update_state(int id, int new_state, int obj, int last_index);
 #endif

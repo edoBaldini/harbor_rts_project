@@ -11,6 +11,7 @@ int reach_guard(int ship_id, triple mytrace[X_PORT * Y_PORT], ship cur_ship, boo
 {
 int index;
 int step;
+bool guard_reached = check_position(cur_ship.y, YGUARD_POS);
 	pthread_mutex_lock(&mutex_route);
 	index = routes[ship_id].index;
 	pthread_mutex_unlock(&mutex_route);
@@ -20,7 +21,7 @@ int step;
 		compute_mytrace(ship_id, mytrace, YGUARD_POS);
 	}
 
-	if(check_position(cur_ship.y, YGUARD_POS))
+	if(guard_reached)
 	{
 		index = find_index(mytrace, Y_PORT);
 		step = update_state(ship_id, PORT, Y_PORT, index);
@@ -60,6 +61,9 @@ int step;
 int time_wakeup;
 struct timespec now;
 bool cur_repl = get_repl(ship_id);
+bool place_reached = check_position(cur_ship.y, Y_PLACE + XSHIP);
+bool parked = check_position(cur_ship.y, Y_PLACE - YSHIP);
+	
 	pthread_mutex_lock(&mutex_route);
 	index = routes[ship_id].index;
 	pthread_mutex_unlock(&mutex_route);
@@ -67,19 +71,19 @@ bool cur_repl = get_repl(ship_id);
 	clock_gettime(CLOCK_MONOTONIC, &now);
 	time_wakeup = time_cmp(now, cur_ship.p_time);
 	
-	if (get_repl(ship_id))
+	if (cur_repl)
 	{
 		if (index == -1)
 		{
 			compute_mytrace(ship_id, mytrace, Y_PLACE - YSHIP);
 		}
 
-		if (check_position(cur_ship.y, Y_PLACE + XSHIP))
+		if (place_reached)
 		{
 			update_rr(ship_id, cur_repl, 1);
 		}
 
-		if(check_position(cur_ship.y, Y_PLACE - YSHIP))
+		if(parked)
 		{
 			if (!cur_ship.parking)
 			{	
@@ -112,15 +116,64 @@ bool cur_repl = get_repl(ship_id);
 	return PLACE;	
 }
 
+int reach_exit(int ship_id, triple mytrace[X_PORT * Y_PORT], ship cur_ship, bool move)
+{
+int index;
+int step;
+bool cur_repl = get_repl(ship_id);
+bool cur_req = get_req(ship_id);
+bool exit_reached = check_position(cur_ship.y, Y_PORT - XSHIP) && cur_req == Y_EXIT;
+	
+	pthread_mutex_lock(&mutex_route);
+	index = routes[ship_id].index;
+	pthread_mutex_unlock(&mutex_route);
+	
+	if (cur_repl)
+	{ 
+		if (index == -1)
+		{
+			compute_mytrace(ship_id, mytrace, Y_EXIT);
+		}
+
+		if (cur_ship.y < mytrace[0].y)
+		{
+			rotate90_ship(ship_id, cur_ship.x, Y_PLACE, mytrace[0].y + YSHIP);
+		}
+		else if (cur_ship.x <= EPSILON + YSHIP || cur_ship.x >= PORT_BMP_W - EPSILON - YSHIP)
+		{
+			exit_ship(ship_id, cur_ship.x);
+			if (cur_ship.x < -YSHIP || cur_ship.x > PORT_BMP_W + YSHIP)
+			{
+				step = update_state(ship_id, GUARD, YGUARD_POS, 0);
+				cur_ship.active = false;
+
+				pthread_mutex_lock(&mutex_fleet);
+				fleet[ship_id].active = false;
+				pthread_mutex_unlock(&mutex_fleet);	
+					
+				pthread_mutex_lock(&mutex_route);
+				routes[ship_id].trace = NULL;
+				pthread_mutex_unlock(&mutex_route);
+				return step;
+			}
+		}
+		else
+		{
+			follow_track_frw(ship_id, mytrace, true);
+		}
+
+		if (exit_reached)
+		{
+			update_rr(ship_id, cur_repl, -1);
+		}
+	}
+	return EXIT;
+}
+
 void * ship_task(void * arg)
 {
-int i;
 int ship_id;
-int index;
 int step = GUARD;
-int cur_req;
-int time_wakeup;
-bool cur_repl;
 bool move;
 bool c_end;
 ship cur_ship;
@@ -143,74 +196,27 @@ const int id = get_task_index(arg);
 		cur_ship = fleet[ship_id];
 		pthread_mutex_unlock(&mutex_fleet);
 		
-		clock_gettime(CLOCK_MONOTONIC, &now);
-		time_wakeup = time_cmp(now, cur_ship.p_time);
-
-		pthread_mutex_lock(&mutex_route);
-		index = routes[ship_id].index;
-		pthread_mutex_unlock(&mutex_route);
-
-		pthread_mutex_lock(&mutex_rr);
-		cur_repl = reply_access[ship_id];
-		cur_req = request_access[ship_id];
-		pthread_mutex_unlock(&mutex_rr);
-
 		if (cur_ship.active)
 		{
-			move = (check_forward(cur_ship.x, cur_ship.y, cur_ship.traj_grade)) ? false: true;
-
-			if (step == GUARD)
-			{	
-				step = reach_guard(ship_id, mytrace, cur_ship, move);
-			}
-
-			if (step == PORT)
+			switch (step)
 			{
-				step = reach_port(ship_id, mytrace, cur_ship, true);
-			}
+				case PORT:
+					step = reach_port(ship_id, mytrace, cur_ship, true);
+					break;
 
-			if (step == PLACE)
-			{
-				step = reach_place(ship_id, mytrace, cur_ship, true);
-			}
-			
+				case PLACE:
+					step = reach_place(ship_id, mytrace, cur_ship, true);
+					break;
 
-			if (step == EXIT && get_repl(ship_id))
-			{ 
-				if (index == -1)
-				{
-					compute_mytrace(ship_id, mytrace, Y_EXIT);
-				}
+				case EXIT:
+					step = reach_exit(ship_id, mytrace, cur_ship, true);
+					break;
 
-				if (cur_ship.y < mytrace[0].y)
-				{
-					rotate90_ship(ship_id, cur_ship.x, Y_PLACE, mytrace[0].y + YSHIP);
-				}
+				default:
+					move = (check_forward(cur_ship.x, cur_ship.y, 
+											cur_ship.traj_grade)) ? false: true;
+					step = reach_guard(ship_id, mytrace, cur_ship, move);
 
-				else if (cur_ship.x > EPSILON + YSHIP && cur_ship.x < PORT_BMP_W - EPSILON - YSHIP)
-				{
-					follow_track_frw(ship_id, mytrace, true);
-				}
-
-				if (check_position(cur_ship.x, X_PORT - YSHIP))
-				{
-					update_rr(ship_id, cur_repl, -1);
-					cur_repl = get_repl(ship_id);
-				}
-
-				if (cur_ship.x <= EPSILON + YSHIP || cur_ship.x >= PORT_BMP_W - EPSILON - YSHIP)
-				{
-					exit_ship(ship_id, cur_ship.x);
-					if (cur_ship.x < -YSHIP || cur_ship.x > PORT_BMP_W + YSHIP)
-					{
-						step = update_state(ship_id, GUARD, YGUARD_POS, 0);
-						cur_ship.active = false;	
-						cur_repl = get_repl(ship_id);
-						pthread_mutex_lock(&mutex_route);
-						routes[ship_id].trace = NULL;
-						pthread_mutex_unlock(&mutex_route);
-					}
-				}
 			}
 		}
 
@@ -341,7 +347,7 @@ fleet[id].traj_grade = grade;
 
 void follow_track_frw(int id, triple mytrace[X_PORT * Y_PORT], bool move)
 {
-	float p = 0.03;
+	float p = 0.02;
 	float des;
 	float acc;
 	float d_obj;
@@ -353,29 +359,28 @@ void follow_track_frw(int id, triple mytrace[X_PORT * Y_PORT], bool move)
 	i = routes[id].index;
 	last_index = routes[id].last_index;
 	pthread_mutex_unlock(&mutex_route);
+
 	last_index = (move) ? last_index : i;
 
 	pthread_mutex_lock(&mutex_fleet);
-	c_vel = fleet[id].vel;
-	d_obj = distance_vector(fleet[id].x, fleet[id].y, mytrace[last_index].x, 
-												mytrace[last_index].y);
-	
-	c_vel = ((d_obj / 2) * p < c_vel) ? (d_obj / 2) * p : c_vel;
-	c_vel = (c_vel > MAX_VEL) ? MAX_VEL: c_vel;
-
-	fleet[id].vel = (fleet[id].vel < c_vel) ? fleet[id].vel: c_vel;
-
 
 	if (mytrace[i].color == red)
 	{
-		fleet[id].vel -= 0.03;
-		fleet[id].vel = (fleet[id].vel < MIN_VEL)? MIN_VEL: fleet[id].vel;
+		fleet[id].vel -= (fleet[id].vel - MIN_VEL) * p;
+		fleet[id].vel = MAX(fleet[id].vel, MIN_VEL);
 	}
 
 	else 
 	{
-		fleet[id].vel += 0.03;
+		fleet[id].vel += (MAX_VEL - fleet[id].vel) * p;
 	}
+
+	c_vel = fleet[id].vel;
+	d_obj = distance_vector(fleet[id].x, fleet[id].y, mytrace[last_index].x, 
+												mytrace[last_index].y);
+
+	fleet[id].vel = MIN((d_obj) * p, fleet[id].vel);
+	fleet[id].vel = MIN(MAX_VEL, fleet[id].vel);
 
 	des = fleet[id].vel*PERIOD;
 	acc = distance_vector(fleet[id].x, fleet[id].y, mytrace[i].x, mytrace[i].y);
@@ -387,7 +392,7 @@ void follow_track_frw(int id, triple mytrace[X_PORT * Y_PORT], bool move)
 																mytrace[i].y);
 	}
 
-	index = (i > last_index) ? last_index: i;
+	index = MIN(i, last_index);
 	fleet[id].x = p * (mytrace[index].x ) + (1 - p) * (fleet[id].x);
 	fleet[id].y = p * (mytrace[index].y ) + (1 - p) * (fleet[id].y);
 
@@ -480,6 +485,15 @@ bool repl;
 	repl = reply_access[ship_id];
 	pthread_mutex_unlock(&mutex_rr);
 	return repl;
+}
+
+bool get_req(int ship_id)
+{
+int req;
+	pthread_mutex_lock(&mutex_rr);
+	req = request_access[ship_id];
+	pthread_mutex_unlock(&mutex_rr);
+	return req;
 }
 
 int update_state(int id, int new_state, int obj, int last_index)
