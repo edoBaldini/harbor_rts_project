@@ -165,13 +165,12 @@ bool c_end = false;
 		circle(radar, R_BMP_W / 2, R_BMP_H / 2, R_BMP_H / 2, makecol(255,255,255));
 		blit(radar, screen, 0, 0,910, 0, radar->w, radar->h);
 		pthread_mutex_unlock(&mutex_radar);
-
+		
 		if (deadline_miss(id))
 		{   
 			printf("%d) deadline missed! display\n", id);
 		}
 		wait_for_activation(id);
-
 	}
 
 	for (i = 0; i < PLACE_NUMBER; ++i)
@@ -212,10 +211,7 @@ void init(void)
 
 	enter_trace[0] = load_bitmap("e1_c.bmp", NULL);
 	enter_trace[1] = load_bitmap("e3_c.bmp", NULL);
-	enter_trace[2] =  create_bitmap(PORT_BMP_W, PORT_BMP_H);
-	
-	clear_to_color(enter_trace[2], makecol(255,0,255));
-	draw_sprite_h_flip(enter_trace[2], enter_trace[0],0,0);
+	enter_trace[2] = load_bitmap("e2_c.bmp", NULL);
 
 	pthread_mutex_init(&mutex_rr, NULL);
 	pthread_mutex_init(&mutex_p, NULL);
@@ -482,39 +478,53 @@ ship cur_ship;
 
 void view_routes()
 {
-int e1, e2, e3;
 int i;
-int counter;
+int counter = 0;
 ship cur_ship;
+bool entrance[3] = {true, true, true};
+bool parked;
+bool allow;
+
 	for (i = 0; i < ships_activated; ++i)
 	{
-		e1 = getpixel(screen, 0, 806 + (YSHIP / 2)) == SEA_COLOR;
-		e2 = getpixel(screen, 899, 806 + (YSHIP / 2)) == SEA_COLOR;
-		e3 = getpixel(screen, 450, 899) == SEA_COLOR;
-
 		pthread_mutex_lock(&mutex_fleet);
 		cur_ship = fleet[i];
 		pthread_mutex_unlock(&mutex_fleet);
-
+		parked = check_position(cur_ship.y, Y_PLACE - YSHIP);
 		pthread_mutex_lock(&mutex_route);
-		if (cur_ship.y > Y_PORT)
+
+		if (cur_ship.y >= Y_PORT)
 		{
-			if ((e1 || e2 || e3) && routes[i].trace != NULL)
+			if (cur_ship.x < X_PORT && entrance[0])
+			{	
+				entrance[0] = false;
+				counter ++;
+				draw_sprite(screen, routes[i].trace, 0, YSHIP / 2);	
+			}
+
+			if (cur_ship.x == X_PORT && entrance[1])
 			{
+				entrance[1] = false;
+				counter ++;
+				draw_sprite(screen, routes[i].trace, 0, YSHIP / 2);	
+			}
+
+			if (cur_ship.x > X_PORT && entrance[2])
+			{
+				entrance[2] = false;
 				counter ++;
 				draw_sprite(screen, routes[i].trace, 0, YSHIP / 2);	
 			}
 		}
 				
-		if (cur_ship.y < Y_PORT && routes[i].trace != NULL &&
-						 !check_position(cur_ship.y, Y_PLACE - YSHIP)) 
+		if (cur_ship.y < Y_PORT && routes[i].trace != NULL && !parked) 
 		{
 			counter ++;
 			draw_sprite(screen, routes[i].trace, 0, YSHIP / 2);	
 		}
 		pthread_mutex_unlock(&mutex_route);
-
 	}
+		printf("counter %d\n", counter);
 }
 
 //------------------------------------------------------------------------------

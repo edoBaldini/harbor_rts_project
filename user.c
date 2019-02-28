@@ -143,10 +143,10 @@ int index = (id % 3);
 	pthread_mutex_lock(&mutex_fleet);
 	fleet[id].parking = false;
 	fleet[id].traj_grade = 3 * M_PI / 2;
-	fleet[id].x = 450 * (index % 3); 
+	fleet[id].x = 450 * index; 
 	fleet[id].y = PORT_BMP_H - 1; 
 	fleet[id].active = true;
-	fleet[id].vel = MIN_VEL;
+	fleet[id].vel = 0;
 	pthread_mutex_unlock(&mutex_fleet);
 
 	pthread_mutex_lock(&mutex_route);

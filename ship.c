@@ -316,11 +316,9 @@ int color1, color2;
 		y = y_cur + j * sin(g_cur) + (YSHIP / 2 );
 		pthread_mutex_lock(&mutex_sea);
 		color1 = getpixel(sea, x, y);
-		color2 = getpixel(sea, x + (XSHIP / 2) ,y - (XSHIP / 2));
 		pthread_mutex_unlock(&mutex_sea);
 
-		if ((color1 != SEA_COLOR && color1 != -1) ||
-				color2 != SEA_COLOR && color2 != -1 )
+		if ((color1 != SEA_COLOR && color1 != -1))
 		{
 			return true; 		
 		}
@@ -384,7 +382,6 @@ void follow_track_frw(int id, triple mytrace[X_PORT * Y_PORT], bool move)
 
 	des = fleet[id].vel*PERIOD;
 	acc = distance_vector(fleet[id].x, fleet[id].y, mytrace[i].x, mytrace[i].y);
-
 	while (des > acc)
 	{
 		i += 1;
@@ -428,7 +425,7 @@ float aux = 10000 / PERIOD;
 
 bool exit_ship(int id, float x_cur)
 {
-float aux = 1000 / PERIOD;
+float aux = 700 / PERIOD;
 	if(x_cur < X_PORT)
 	{
 		if (x_cur > -YSHIP)
