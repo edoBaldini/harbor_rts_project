@@ -146,12 +146,12 @@ int index = (id % 3);
 	fleet[id].x = 450 * index; 
 	fleet[id].y = PORT_BMP_H - 1; 
 	fleet[id].active = true;
-	fleet[id].vel = 0;
+	fleet[id].vel = MIN_VEL;
 	pthread_mutex_unlock(&mutex_fleet);
 
 	pthread_mutex_lock(&mutex_route);
 	routes[id].trace = enter_trace[index]; 
-	routes[id].odd = (index == 1);
+	routes[id].odd = (index == 2);
 	routes[id].index = -1;
 	pthread_mutex_unlock(&mutex_route);
 

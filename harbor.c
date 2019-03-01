@@ -478,42 +478,56 @@ ship cur_ship;
 
 void view_routes()
 {
-int i;
+int i, j;
 int counter = 0;
 ship cur_ship;
-bool entrance[3] = {true, true, true};
+int entrance[3] = {-1, -1, -1};
 bool parked;
-bool allow;
 
+	printf("%d \n", 7 == 7);
 	for (i = 0; i < ships_activated; ++i)
 	{
 		pthread_mutex_lock(&mutex_fleet);
 		cur_ship = fleet[i];
 		pthread_mutex_unlock(&mutex_fleet);
 		parked = check_position(cur_ship.y, Y_PLACE - YSHIP);
+		
 		pthread_mutex_lock(&mutex_route);
-
 		if (cur_ship.y >= Y_PORT)
 		{
-			if (cur_ship.x < X_PORT && entrance[0])
+			//TODO: scegli uno dei due
+#if 0
+			int index = (cur_ship.x == X_PORT) + (cur_ship.x > X_PORT) * 2;
+			if (entrance[index] == -1)
+			{
+				entrance[index] = i; 
+			}
+#else
+			if (cur_ship.x < X_PORT && entrance[0] == -1)
 			{	
-				entrance[0] = false;
-				counter ++;
-				draw_sprite(screen, routes[i].trace, 0, YSHIP / 2);	
+				entrance[0] = i;
 			}
 
-			if (cur_ship.x == X_PORT && entrance[1])
+			if (cur_ship.x == X_PORT && entrance[1] == -1)
 			{
-				entrance[1] = false;
-				counter ++;
-				draw_sprite(screen, routes[i].trace, 0, YSHIP / 2);	
+				entrance[1] = i;
+
 			}
 
-			if (cur_ship.x > X_PORT && entrance[2])
+			if (cur_ship.x > X_PORT && entrance[2] == -1)
 			{
-				entrance[2] = false;
-				counter ++;
-				draw_sprite(screen, routes[i].trace, 0, YSHIP / 2);	
+				entrance[2] = i;
+
+			}
+#endif
+
+			for (j = 0; j < 3; ++j)
+			{
+				if (i == entrance[j])
+				{
+					draw_sprite(screen, routes[i].trace, 0, YSHIP / 2);	
+					counter ++;
+				}
 			}
 		}
 				

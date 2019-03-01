@@ -5,12 +5,12 @@
 #include <stdio.h>
 #include "ptask.h"
 
-static enum state {GUARD, PORT, PLACE, EXIT};
+enum state {GUARD, PORT, PLACE, EGRESS};
 
-int reach_guard(int ship_id, triple mytrace[X_PORT * Y_PORT], ship cur_ship, bool move)
+enum state reach_guard(int ship_id, triple mytrace[X_PORT * Y_PORT], ship cur_ship, bool move)
 {
 int index;
-int step;
+enum state step;
 bool guard_reached = check_position(cur_ship.y, YGUARD_POS);
 	pthread_mutex_lock(&mutex_route);
 	index = routes[ship_id].index;
@@ -32,9 +32,9 @@ bool guard_reached = check_position(cur_ship.y, YGUARD_POS);
 	return GUARD;
 }
 
-int reach_port(int ship_id, triple mytrace[X_PORT * Y_PORT], ship cur_ship, bool move)
+enum state reach_port(int ship_id, triple mytrace[X_PORT * Y_PORT], ship cur_ship, bool move)
 {
-int step;	
+enum state step;	
 bool cur_repl = get_repl(ship_id);	
 bool port_reached = check_position(cur_ship.y, Y_PORT);
 
@@ -54,10 +54,10 @@ bool port_reached = check_position(cur_ship.y, Y_PORT);
 	return PORT;
 }
 
-int reach_place(int ship_id, triple mytrace[X_PORT * Y_PORT], ship cur_ship, bool move)
+enum state reach_place(int ship_id, triple mytrace[X_PORT * Y_PORT], ship cur_ship, bool move)
 {
 int index;
-int step;
+enum state step;
 int time_wakeup;
 struct timespec now;
 bool cur_repl = get_repl(ship_id);
@@ -103,7 +103,7 @@ bool parked = check_position(cur_ship.y, Y_PLACE - YSHIP);
 					pthread_mutex_unlock(&mutex_fleet);
 
 					cur_ship.parking = false;
-					step = update_state(ship_id, EXIT, Y_EXIT, 0);
+					step = update_state(ship_id, EGRESS, Y_EXIT, 0);
 					return step;
 				}
 			}
@@ -116,10 +116,10 @@ bool parked = check_position(cur_ship.y, Y_PLACE - YSHIP);
 	return PLACE;	
 }
 
-int reach_exit(int ship_id, triple mytrace[X_PORT * Y_PORT], ship cur_ship, bool move)
+enum state reach_exit(int ship_id, triple mytrace[X_PORT * Y_PORT], ship cur_ship, bool move)
 {
 int index;
-int step;
+enum state step;
 bool cur_repl = get_repl(ship_id);
 bool cur_req = get_req(ship_id);
 bool exit_reached = check_position(cur_ship.y, Y_PORT - XSHIP) && cur_req == Y_EXIT;
@@ -167,13 +167,13 @@ bool exit_reached = check_position(cur_ship.y, Y_PORT - XSHIP) && cur_req == Y_E
 			update_rr(ship_id, cur_repl, -1);
 		}
 	}
-	return EXIT;
+	return EGRESS;
 }
 
 void * ship_task(void * arg)
 {
 int ship_id;
-int step = GUARD;
+enum state step = GUARD;
 bool move;
 bool c_end;
 ship cur_ship;
@@ -208,7 +208,7 @@ const int id = get_task_index(arg);
 					step = reach_place(ship_id, mytrace, cur_ship, true);
 					break;
 
-				case EXIT:
+				case EGRESS:
 					step = reach_exit(ship_id, mytrace, cur_ship, true);
 					break;
 
@@ -345,11 +345,11 @@ fleet[id].traj_grade = grade;
 
 void follow_track_frw(int id, triple mytrace[X_PORT * Y_PORT], bool move)
 {
+	float abs_min = 0.02;
 	float p = 0.02;
 	float des;
 	float acc;
 	float d_obj;
-	float c_vel;
 	int red = makecol(255, 0, 0);
 	int i, index, last_index;
 
@@ -361,11 +361,14 @@ void follow_track_frw(int id, triple mytrace[X_PORT * Y_PORT], bool move)
 	last_index = (move) ? last_index : i;
 
 	pthread_mutex_lock(&mutex_fleet);
-
+	d_obj = distance_vector(fleet[id].x, fleet[id].y, mytrace[last_index].x, 
+												mytrace[last_index].y);
+	fleet[id].vel = MIN((d_obj) * p, fleet[id].vel);
+	fleet[id].vel = MIN(MAX_VEL, fleet[id].vel);
+	
 	if (mytrace[i].color == red)
 	{
 		fleet[id].vel -= (fleet[id].vel - MIN_VEL) * p;
-		fleet[id].vel = MAX(fleet[id].vel, MIN_VEL);
 	}
 
 	else 
@@ -373,15 +376,9 @@ void follow_track_frw(int id, triple mytrace[X_PORT * Y_PORT], bool move)
 		fleet[id].vel += (MAX_VEL - fleet[id].vel) * p;
 	}
 
-	c_vel = fleet[id].vel;
-	d_obj = distance_vector(fleet[id].x, fleet[id].y, mytrace[last_index].x, 
-												mytrace[last_index].y);
-
-	fleet[id].vel = MIN((d_obj) * p, fleet[id].vel);
-	fleet[id].vel = MIN(MAX_VEL, fleet[id].vel);
-
 	des = fleet[id].vel*PERIOD;
 	acc = distance_vector(fleet[id].x, fleet[id].y, mytrace[i].x, mytrace[i].y);
+
 	while (des > acc)
 	{
 		i += 1;
@@ -425,7 +422,7 @@ float aux = 10000 / PERIOD;
 
 bool exit_ship(int id, float x_cur)
 {
-float aux = 700 / PERIOD;
+float aux = 1000 / PERIOD;
 	if(x_cur < X_PORT)
 	{
 		if (x_cur > -YSHIP)
