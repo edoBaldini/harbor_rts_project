@@ -310,7 +310,7 @@ bool check_forward(float x_cur, float y_cur, float g_cur)
 float x, y, j;
 int color1, color2;
 
-	for (j = (YSHIP/2) + 2; j < 90; ++j )
+	for (j = (YSHIP/2) + 2; j < 130; ++j )
 	{
 		x = x_cur + j * cos(g_cur);
 		y = y_cur + j * sin(g_cur) + (YSHIP / 2 );
@@ -345,7 +345,6 @@ fleet[id].traj_grade = grade;
 
 void follow_track_frw(int id, triple mytrace[X_PORT * Y_PORT], bool move)
 {
-	float abs_min = 0.02;
 	float p = 0.02;
 	float des;
 	float acc;
@@ -359,7 +358,7 @@ void follow_track_frw(int id, triple mytrace[X_PORT * Y_PORT], bool move)
 	pthread_mutex_unlock(&mutex_route);
 
 	last_index = (move) ? last_index : i;
-
+	
 	pthread_mutex_lock(&mutex_fleet);
 	d_obj = distance_vector(fleet[id].x, fleet[id].y, mytrace[last_index].x, 
 												mytrace[last_index].y);
@@ -385,13 +384,15 @@ void follow_track_frw(int id, triple mytrace[X_PORT * Y_PORT], bool move)
 		acc += distance_vector(fleet[id].x, fleet[id].y, mytrace[i].x, 
 																mytrace[i].y);
 	}
-
 	index = MIN(i, last_index);
+
 	fleet[id].x = p * (mytrace[index].x ) + (1 - p) * (fleet[id].x);
 	fleet[id].y = p * (mytrace[index].y ) + (1 - p) * (fleet[id].y);
 
 	if (move)
+	{
 		grade_filter(id, index, mytrace);
+	}
 
 	pthread_mutex_unlock(&mutex_fleet);
 
@@ -422,13 +423,13 @@ float aux = 10000 / PERIOD;
 
 bool exit_ship(int id, float x_cur)
 {
-float aux = 1000 / PERIOD;
+float aux = 1400 / PERIOD;
 	if(x_cur < X_PORT)
 	{
 		if (x_cur > -YSHIP)
 		{
 			pthread_mutex_lock(&mutex_fleet);
-			fleet[id].x -= YSHIP / aux;
+			fleet[id].x -= fleet[id].vel / 2;//YSHIP / aux;
 			fleet[id].traj_grade = M_PI;
 			pthread_mutex_unlock(&mutex_fleet);
 

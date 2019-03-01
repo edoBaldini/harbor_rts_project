@@ -4,7 +4,7 @@
 //------------------------------------------------------------------------------
 //	USER FUNCTIONS
 //------------------------------------------------------------------------------
-void botton_pressed();
+struct timespec botton_pressed(struct timespec pressed);
 int find_parked();
 void woke_up();
 void add_parking_time();

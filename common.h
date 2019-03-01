@@ -3,9 +3,9 @@
 #include <allegro.h>
 
 #define XWIN			1400		// width monitor
-#define YWIN			760			// height monitor
-#define PERIOD			20			// in ms
-#define DLINE			15			// in ms
+#define YWIN			700			// height monitor
+#define PERIOD			25			// in ms
+#define DLINE			20			// in ms
 #define PRIO			10			// priority level
 #define AUX_THREAD 		4
 #define MAX_THREADS		20			
@@ -27,8 +27,8 @@
 //------------------------------------------------------------------------------
 #define XSHIP			18			// width dimension of the ship  
 #define YSHIP			54			// height dimension of the ship
-#define MIN_P_TIME		70000//1000			// min ship parking time, in ms
-#define	MAX_P_TIME		70000//30000		// max ship parking time, in ms
+#define MIN_P_TIME		20000		// min ship parking time, in ms
+#define	MAX_P_TIME		70000		// max ship parking time, in ms
 #define MIN_VEL			1			// minimum speed
 #define	MAX_VEL			3			// maximum speed
 

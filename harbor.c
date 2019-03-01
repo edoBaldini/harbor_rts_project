@@ -194,14 +194,11 @@ void init(void)
 
 	set_color_depth(16);
 	set_gfx_mode(GFX_AUTODETECT_WINDOWED, XWIN, YWIN,0,0);
-	set_keyboard_rate(0, 0);
 	enable_hardware_cursor();
 	show_mouse(screen);
 	
 	sea = create_bitmap(PORT_BMP_W, PORT_BMP_H);
 	radar = create_bitmap(R_BMP_W, PORT_BMP_H);
-
-	//sea_color = makecol(0,85,165);
 
 	clear_to_color(sea, SEA_COLOR);
 	clear_bitmap(radar);
@@ -212,6 +209,8 @@ void init(void)
 	enter_trace[0] = load_bitmap("e1_c.bmp", NULL);
 	enter_trace[1] = load_bitmap("e3_c.bmp", NULL);
 	enter_trace[2] = load_bitmap("e2_c.bmp", NULL);
+
+	srand(time(0));
 
 	pthread_mutex_init(&mutex_rr, NULL);
 	pthread_mutex_init(&mutex_p, NULL);
@@ -484,7 +483,6 @@ ship cur_ship;
 int entrance[3] = {-1, -1, -1};
 bool parked;
 
-	printf("%d \n", 7 == 7);
 	for (i = 0; i < ships_activated; ++i)
 	{
 		pthread_mutex_lock(&mutex_fleet);
@@ -538,7 +536,7 @@ bool parked;
 		}
 		pthread_mutex_unlock(&mutex_route);
 	}
-		printf("counter %d\n", counter);
+		//printf("counter %d\n", counter);
 }
 
 //------------------------------------------------------------------------------

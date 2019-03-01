@@ -7,15 +7,18 @@
 
 void * user_task(void * arg)
 {   
+int delay;
 char scan;
 bool c_end = false;
-
+struct timespec pressed;
+struct timespec delayed;
 // Task private variables
 const int id = get_task_index(arg);
 	set_activation(id);
+	clock_gettime(CLOCK_MONOTONIC, &pressed);
 
 	while (!c_end) 
-	{
+	{		
 		pthread_mutex_lock(&mutex_end);
 		c_end = end;
 		pthread_mutex_unlock(&mutex_end);
@@ -31,7 +34,9 @@ const int id = get_task_index(arg);
 					break;
 		}
 
-		botton_pressed();
+		delayed = botton_pressed(pressed);
+
+	 	time_copy(&pressed, delayed);
 
 		if (deadline_miss(id))
 		{   
@@ -43,9 +48,15 @@ const int id = get_task_index(arg);
 return NULL;
 }
 
-void botton_pressed()
+struct  timespec botton_pressed(struct timespec pressed)
 {
+int delay = 2000;
 char scan = 0;
+struct timespec now;
+int time_wakeup;
+
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	time_wakeup = time_cmp(now, pressed);
 
 	if (keypressed()) 
 	{
@@ -55,7 +66,13 @@ char scan = 0;
 	switch (scan)
 	{
 		case KEY_ENTER:
-				init_ship();
+
+				if (time_wakeup >= 0)
+				{
+					init_ship();
+					time_add_ms(&now, delay);
+					time_copy(&pressed, now);
+				}
 				break;
 
 		case KEY_SPACE:
@@ -72,6 +89,7 @@ char scan = 0;
 				pthread_mutex_unlock(&mutex_end);
 				break;
 	}	
+	return pressed;
 }
 
 int find_parked()
@@ -144,9 +162,9 @@ int index = (id % 3);
 	fleet[id].parking = false;
 	fleet[id].traj_grade = 3 * M_PI / 2;
 	fleet[id].x = 450 * index; 
-	fleet[id].y = PORT_BMP_H - 1; 
+	fleet[id].y = PORT_BMP_H * 2; 
 	fleet[id].active = true;
-	fleet[id].vel = MIN_VEL;
+	fleet[id].vel = 0;
 	pthread_mutex_unlock(&mutex_fleet);
 
 	pthread_mutex_lock(&mutex_route);
