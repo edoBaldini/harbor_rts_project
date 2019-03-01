@@ -162,7 +162,7 @@ int index = (id % 3);
 	fleet[id].parking = false;
 	fleet[id].traj_grade = 3 * M_PI / 2;
 	fleet[id].x = 450 * index; 
-	fleet[id].y = PORT_BMP_H * 2; 
+	fleet[id].y = PORT_BMP_H; 
 	fleet[id].active = true;
 	fleet[id].vel = 0;
 	pthread_mutex_unlock(&mutex_fleet);
