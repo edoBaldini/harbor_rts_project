@@ -5,12 +5,13 @@
 #include <math.h>
 #include <stdio.h>
 
+struct timespec pressed;
+
 void * user_task(void * arg)
 {   
 int delay;
 char scan;
 bool c_end = false;
-struct timespec pressed;
 struct timespec delayed;
 // Task private variables
 const int id = get_task_index(arg);
@@ -34,9 +35,7 @@ const int id = get_task_index(arg);
 					break;
 		}
 
-		delayed = botton_pressed(pressed);
-
-	 	time_copy(&pressed, delayed);
+		botton_pressed();
 
 		if (deadline_miss(id))
 		{   
@@ -48,7 +47,7 @@ const int id = get_task_index(arg);
 return NULL;
 }
 
-struct  timespec botton_pressed(struct timespec pressed)
+void botton_pressed()//struct timespec pressed)
 {
 int delay = 2000;
 char scan = 0;
@@ -89,21 +88,15 @@ int time_wakeup;
 				pthread_mutex_unlock(&mutex_end);
 				break;
 	}	
-	return pressed;
 }
 
 int find_parked()
 {
 int pos = -1;
 int ship_index = -1;
-int half_num_parking = PLACE_NUMBER / 2;
-int delta = 28;
-int offset = 19;
-int l_x = 121;
-int r_x = PORT_BMP_W - l_x - delta - (half_num_parking - 1) * (offset + delta);
 bool is_parked = false;
 
-pos = click_place(offset, delta, l_x, r_x);
+pos = click_place();
 
 	if (pos>= 0)
 	{
@@ -156,12 +149,12 @@ int ship_index = find_parked();
 void initialize_ship(int i)
 {
 int id = (i > -1)? i : ships_activated;
-int index = (id % 3);
+int index = (id % ENTER_NUMBER);
 
 	pthread_mutex_lock(&mutex_fleet);
 	fleet[id].parking = false;
 	fleet[id].traj_grade = 3 * M_PI / 2;
-	fleet[id].x = 450 * index; 
+	fleet[id].x = X_PORT * index; 
 	fleet[id].y = PORT_BMP_H; 
 	fleet[id].active = true;
 	fleet[id].vel = 0;
@@ -212,10 +205,14 @@ bool active;
 	}
 }
 
-int click_place(int offset, int delta, int l_x, int r_x)
+int click_place()
 {
 int i, space;
 int half_num_parking = PLACE_NUMBER / 2;
+int delta = 28;
+int offset = 19;
+int l_x = 121;
+int r_x = PORT_BMP_W - l_x - delta - (half_num_parking - 1) * (offset + delta);
 
 	if (mouse_y <= Y_PLACE && mouse_y >= Y_PLACE - YSHIP)
 	{
@@ -223,10 +220,14 @@ int half_num_parking = PLACE_NUMBER / 2;
 		{
 			space = i * (offset + delta);
 			if(mouse_x <= l_x + space + delta && mouse_x >= l_x + space)
+			{
 				return i;
+			}
 
 			else if (mouse_x <= r_x + space + delta && mouse_x >= r_x + space)
+				 {
 					return i + half_num_parking;
+				 }
 
 		}
 		return -1;
