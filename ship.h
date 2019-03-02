@@ -6,12 +6,11 @@
 //------------------------------------------------------------------------------
 void compute_mytrace(int ship_id, triple mytrace[X_PORT * Y_PORT], int obj);
 bool check_forward(float x_cur, float y_cur, float g_cur);
-void follow_track_frw(int id, triple mytrace[], bool move);
+void follow_track_frw(int id, bool move);
 
 void rotate90_ship(int id, float x_cur, int y1, int y2);
 bool exit_ship(int id, float x_cur);
 float distance_vector (float x1, float y1, float x2, float y2);
-int find_index(triple mytrace[X_PORT * Y_PORT], int posix);
 void update_rr(int id, int repl, int req);
 bool get_repl(int ship_id);
 bool get_req(int ship_id);

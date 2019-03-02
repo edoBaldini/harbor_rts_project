@@ -3,7 +3,7 @@
 #include <allegro.h>
 
 #define XWIN			1400						// width monitor
-#define YWIN			740							// height monitor
+#define YWIN			900							// height monitor
 #define PERIOD			25							// in ms
 #define DLINE			20							// in ms
 #define PRIO			10							// priority level
@@ -78,8 +78,7 @@ typedef struct triple 			// triple exploited to build the positions array
 
 typedef struct route 			// struct related to ship identifying its route
 {
-	BITMAP * trace;				// path that the ships will follow
-	bool odd;					// 
+	int trace_index;			// path that the ships will follow
 	int index;					// index of the ship in the positions array
 	int last_index;				// last index of the positions array
 }route;
@@ -99,6 +98,13 @@ typedef struct track 			// structure that identify a parking spot
 	int ship_id;				// id of the ship associated to a place
 	bool available;				// if a place is free or not
 }track; 
+
+typedef struct array_route
+{
+	triple enter_array[PORT_BMP_W * PORT_BMP_H];
+	triple exit_array[PORT_BMP_W * PORT_BMP_H];
+}array_route;
+
 //-----------------------------------------------------------------------------
 // GLOBAL VARIABLES
 //------------------------------------------------------------------------------
@@ -111,6 +117,8 @@ extern struct track tracks[N_PLACE + N_INGRESS];
 
 extern struct ship fleet[MAX_SHIPS];
 extern struct route routes[MAX_SHIPS];
+
+extern struct array_route array_routes[N_PLACE + N_INGRESS];
 
 extern int ships_activated;
 extern int request_access[MAX_SHIPS];
@@ -126,8 +134,6 @@ extern pthread_mutex_t mutex_sea;
 extern pthread_mutex_t mutex_end;
 extern pthread_mutex_t mutex_s_route;
 
-extern triple array_routes[N_PLACE + N_INGRESS][PORT_BMP_W * PORT_BMP_H];
-
 //------------------------------------------------------------------------------
 //	COMMON FUNCTIONS
 //------------------------------------------------------------------------------
@@ -139,4 +145,6 @@ void * user_task(void * arg);
 void * ship_task(void * arg);
 void reverse_array(triple trace[], int last_index);
 void make_array_trace(BITMAP * t, triple trace[], bool odd, int req);
+int find_index(triple mytrace[X_PORT * Y_PORT], int posix);
+
 #endif

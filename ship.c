@@ -16,19 +16,13 @@ bool guard_reached = check_position(cur_ship.y, YGUARD_POS);
 	index = routes[ship_id].index;
 	pthread_mutex_unlock(&mutex_route);
 
-	if (index == -1)
-	{
-		compute_mytrace(ship_id, mytrace, YGUARD_POS);
-	}
-
 	if(guard_reached)
 	{
 		index = find_index(mytrace, Y_PORT);
 		step = update_state(ship_id, PORT, Y_PORT, index);
 		return step;
 	}
-
-	follow_track_frw(ship_id, mytrace, move);
+	follow_track_frw(ship_id, move);
 	return GUARD;
 }
 
@@ -47,7 +41,7 @@ bool port_reached = check_position(cur_ship.y, Y_PORT);
 		}
 		else 
 		{
-			follow_track_frw(ship_id, mytrace, true);
+			follow_track_frw(ship_id, true);
 		}
 	}
 
@@ -73,10 +67,6 @@ bool parked = check_position(cur_ship.y, Y_PLACE - YSHIP);
 	
 	if (cur_repl)
 	{
-		if (index == -1)
-		{
-			compute_mytrace(ship_id, mytrace, Y_PLACE - YSHIP);
-		}
 
 		if (place_reached)
 		{
@@ -110,7 +100,7 @@ bool parked = check_position(cur_ship.y, Y_PLACE - YSHIP);
 		}
 		else
 		{	
-			follow_track_frw(ship_id, mytrace, true);
+			follow_track_frw(ship_id, true);
 		}
 	}
 	return PLACE;	
@@ -130,10 +120,6 @@ bool exit_reached = check_position(cur_ship.y, Y_PORT - XSHIP) && cur_req == Y_E
 	
 	if (cur_repl)
 	{ 
-		if (index == -1)
-		{
-			compute_mytrace(ship_id, mytrace, Y_EXIT);
-		}
 
 		if (cur_ship.y < mytrace[0].y)
 		{
@@ -152,14 +138,14 @@ bool exit_reached = check_position(cur_ship.y, Y_PORT - XSHIP) && cur_req == Y_E
 				pthread_mutex_unlock(&mutex_fleet);	
 					
 				pthread_mutex_lock(&mutex_route);
-				routes[ship_id].trace = NULL;
+				routes[ship_id].trace_index = -1;
 				pthread_mutex_unlock(&mutex_route);
 				return step;
 			}
 		}
 		else
 		{
-			follow_track_frw(ship_id, mytrace, true);
+			follow_track_frw(ship_id, true);
 		}
 
 		if (exit_reached)
@@ -197,7 +183,7 @@ const int id = get_task_index(arg);
 		pthread_mutex_unlock(&mutex_fleet);
 		
 		if (cur_ship.active)
-		{
+		{		
 			switch (step)
 			{
 				case PORT:
@@ -232,25 +218,6 @@ const int id = get_task_index(arg);
 //------------------------------------------------------------------------------
 // FUNCTIONS FOR SHIPS
 //------------------------------------------------------------------------------
-void compute_mytrace(int ship_id, triple mytrace[X_PORT * Y_PORT], int obj)
-{
-int index_objective;
-bool is_odd;
-BITMAP * cur_trace;
-
-	pthread_mutex_lock(&mutex_route);
-	cur_trace = routes[ship_id].trace;
-	is_odd = routes[ship_id].odd;
-	pthread_mutex_unlock(&mutex_route);
-
-	make_array_trace(cur_trace, mytrace, is_odd, obj);
-	index_objective =  find_index(mytrace, obj);
-	
-	pthread_mutex_lock(&mutex_route);
-	routes[ship_id].index = 0;
-	routes[ship_id].last_index = index_objective;
-	pthread_mutex_unlock(&mutex_route);
-}
 
 void reverse_array(triple trace[X_PORT * Y_PORT], int last_index)
 {
@@ -343,29 +310,32 @@ fleet[id].traj_grade = grade;
 }
 
 
-void follow_track_frw(int id, triple mytrace[X_PORT * Y_PORT], bool move)
+void follow_track_frw(int id, bool move)
 {
 	float p = 0.02;
 	float des;
 	float acc;
 	float d_obj;
 	int red = makecol(255, 0, 0);
-	int i, index, last_index;
+	int i, index, last_index, trace_index ;
 
 	pthread_mutex_lock(&mutex_route);
 	i = routes[id].index;
 	last_index = routes[id].last_index;
+	trace_index = routes[id].trace_index;
 	pthread_mutex_unlock(&mutex_route);
 
 	last_index = (move) ? last_index : i;
 	
 	pthread_mutex_lock(&mutex_fleet);
-	d_obj = distance_vector(fleet[id].x, fleet[id].y, mytrace[last_index].x, 
-												mytrace[last_index].y);
+	d_obj = distance_vector(fleet[id].x, fleet[id].y, 
+						array_routes[trace_index].enter_array[last_index].x, 
+						array_routes[trace_index].enter_array[last_index].y);
+
 	fleet[id].vel = MIN((d_obj) * p, fleet[id].vel);
 	fleet[id].vel = MIN(MAX_VEL, fleet[id].vel);
 	
-	if (mytrace[i].color == red)
+	if (array_routes[trace_index].enter_array[i].color == red)
 	{
 		fleet[id].vel -= (fleet[id].vel - MIN_VEL) * p;
 	}
@@ -376,22 +346,27 @@ void follow_track_frw(int id, triple mytrace[X_PORT * Y_PORT], bool move)
 	}
 
 	des = fleet[id].vel*PERIOD;
-	acc = distance_vector(fleet[id].x, fleet[id].y, mytrace[i].x, mytrace[i].y);
+	acc = distance_vector(fleet[id].x, fleet[id].y, 
+									array_routes[trace_index].enter_array[i].x, 
+									array_routes[trace_index].enter_array[i].y);
 
 	while (des > acc)
 	{
 		i += 1;
-		acc += distance_vector(fleet[id].x, fleet[id].y, mytrace[i].x, 
-																mytrace[i].y);
+		acc += distance_vector(fleet[id].x, fleet[id].y, array_routes[trace_index].enter_array[i].x, 
+																array_routes[trace_index].enter_array[i].y);
 	}
 	index = MIN(i, last_index);
 
-	fleet[id].x = p * (mytrace[index].x ) + (1 - p) * (fleet[id].x);
-	fleet[id].y = p * (mytrace[index].y ) + (1 - p) * (fleet[id].y);
+	fleet[id].x = p * (array_routes[trace_index].enter_array[index].y) 
+													+ (1 - p) * (fleet[id].x);
+
+	fleet[id].y = p * (array_routes[trace_index].enter_array[index].y )
+													+ (1 - p) * (fleet[id].y);
 
 	if (move)
 	{
-		grade_filter(id, index, mytrace);
+		grade_filter(id, index, array_routes[trace_index].enter_array);
 	}
 
 	pthread_mutex_unlock(&mutex_fleet);

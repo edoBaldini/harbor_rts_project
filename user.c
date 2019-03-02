@@ -168,9 +168,9 @@ int index = (id % 3);
 	pthread_mutex_unlock(&mutex_fleet);
 
 	pthread_mutex_lock(&mutex_route);
-	routes[id].trace = enter_trace[index]; 
-	routes[id].odd = (index == 2);
-	routes[id].index = -1;
+	routes[id].trace_index = index;
+	routes[id].index = 0;
+	routes[id].last_index = find_index(array_routes[index].enter_array, YGUARD_POS);
 	pthread_mutex_unlock(&mutex_route);
 
 	if (id == ships_activated)
