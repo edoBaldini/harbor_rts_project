@@ -3,9 +3,7 @@
 #include <assert.h>
 #include "ptask.h"
 
-
-
-#define NT (128)
+#define NT (32)
 
 struct task_par {
     int id;             // task argument

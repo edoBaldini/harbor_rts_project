@@ -6,13 +6,17 @@
 //------------------------------------------------------------------------------
 // GLOBAL VARIABLES
 //------------------------------------------------------------------------------
-struct place places[PLACE_NUMBER];
+struct place places[N_PLACE];
 struct ship fleet[MAX_SHIPS];
 struct route routes[MAX_SHIPS];
 
 BITMAP * sea;
 BITMAP * radar;
 BITMAP * enter_trace[3];
+track tracks[N_PLACE + N_INGRESS];
+
+triple array_routes[N_PLACE + N_INGRESS][PORT_BMP_W * PORT_BMP_H];
+
 int ships_activated = 0;
 int request_access[MAX_SHIPS];
 bool reply_access[MAX_SHIPS];
@@ -173,7 +177,7 @@ bool c_end = false;
 		wait_for_activation(id);
 	}
 
-	for (i = 0; i < PLACE_NUMBER; ++i)
+	for (i = 0; i < N_PLACE; ++i)
 	{
 		destroy_bitmap(places[i].enter_trace);
 		destroy_bitmap(places[i].exit_trace);
@@ -302,7 +306,7 @@ void fill_trace(int ship, int i, BITMAP * trace)
 
 bool assign_trace(int ship)
 {
-int i = random_in_range(0, PLACE_NUMBER -1);
+int i = random_in_range(0, N_PLACE -1);
 bool available;
 BITMAP * enter_trace;
 
@@ -331,7 +335,7 @@ bool assign_exit(int ship)
 int i;
 int ship_assigned;
 BITMAP * exit_trace;
-	for(i = 0; i < PLACE_NUMBER; i++)
+	for(i = 0; i < N_PLACE; i++)
 	{
 		pthread_mutex_lock(&mutex_p);
 		ship_assigned = places[i].ship_id;
@@ -432,7 +436,7 @@ int cur_req;
 	
 	if (cur_req == -1)
 	{
-		for (i = 0; i < PLACE_NUMBER; i++)
+		for (i = 0; i < N_PLACE; i++)
 		{
 			pthread_mutex_lock(&mutex_p);
 			if (places[i].ship_id == ship)
@@ -545,7 +549,7 @@ bool parked;
 void fill_places()
 {
 int i, j;
-	for (j = 0; j < PLACE_NUMBER; ++j)
+	for (j = 0; j < N_PLACE; ++j)
 	{
 		places[j].ship_id = -1;
 		places[j].available = true;
@@ -573,6 +577,82 @@ int i, j;
 		draw_sprite_h_flip(places[i].enter_trace, places[7 - i].enter_trace,0,0);
 		draw_sprite_h_flip(places[i].exit_trace, places[7 - i].exit_trace,0,0);
 	}	
+}
+
+void init_enters()
+{
+int i;
+bool flip = false;
+
+	tracks[0].enter_trace = load_bitmap("e1_c.bmp", NULL);
+	tracks[1].enter_trace = load_bitmap("e3_c.bmp", NULL);
+	tracks[2].enter_trace = load_bitmap("e2_c.bmp", NULL);
+
+	for (i = 0; i < N_INGRESS; ++i)
+	{
+		flip = (i == 2);
+		make_array_trace(tracks[i].enter_trace, array_routes[i], flip, 
+																	YGUARD_POS);
+	}
+
+}
+
+void init_places()
+{
+bool reverse;
+int i, j;
+int last_index = N_PLACE + N_INGRESS;
+int l_place = N_PLACE / 2;
+
+	tracks[last_index - 0].enter_trace = load_bitmap("w1_c.bmp", NULL);
+	tracks[last_index - 0].exit_trace = load_bitmap("x1_c.bmp", NULL);
+
+	tracks[last_index - 1].enter_trace = load_bitmap("w2_c.bmp", NULL);
+	tracks[last_index -	1].exit_trace = load_bitmap("x2_c.bmp", NULL);
+
+	tracks[last_index - 2].enter_trace = load_bitmap("w3_c.bmp", NULL);
+	tracks[last_index - 2].exit_trace = load_bitmap("x3_c.bmp", NULL);
+
+	tracks[last_index - 3].enter_trace = load_bitmap("w4_c.bmp", NULL);
+	tracks[last_index - 3].exit_trace = load_bitmap("x4_c.bmp", NULL);
+
+	for (i = 0; i < l_place; ++i)
+	{
+		j = i + N_INGRESS;
+		tracks[j].enter_trace = create_bitmap(PORT_BMP_W, PORT_BMP_H);
+		tracks[j].exit_trace = create_bitmap(PORT_BMP_W, PORT_BMP_H);
+
+		clear_to_color(tracks[j].enter_trace, makecol(255, 0, 255));
+		clear_to_color(tracks[j].exit_trace, makecol(255, 0, 255));
+	
+		draw_sprite_h_flip(tracks[j].enter_trace, 
+										tracks[last_index - i].enter_trace,0,0);
+
+		draw_sprite_h_flip(tracks[j].exit_trace, 
+										tracks[last_index - i].exit_trace,0,0);
+	}
+
+	for (i = N_INGRESS; i < last_index; ++i)
+	{
+		reverse = i < (l_place + N_INGRESS);
+		make_array_trace(tracks[i].enter_trace, array_routes[i], reverse, 
+																	Y_PLACE);
+	}
+}
+
+void fill_tracks()
+{
+int j;
+int last_index = N_PLACE + N_INGRESS;
+
+	for (j = 0; j < last_index; ++j)
+	{
+		tracks[j].ship_id = -1;
+		places[j].available = true;
+	}
+
+	init_enters();
+	init_places();
 }
 
 int random_in_range(int min_x, int max_x)

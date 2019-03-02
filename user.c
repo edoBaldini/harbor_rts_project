@@ -50,7 +50,7 @@ return NULL;
 
 struct  timespec botton_pressed(struct timespec pressed)
 {
-int delay = 2000;
+int delay = 500;
 char scan = 0;
 struct timespec now;
 int time_wakeup;
@@ -96,7 +96,7 @@ int find_parked()
 {
 int pos = -1;
 int ship_index = -1;
-int half_num_parking = PLACE_NUMBER / 2;
+int half_num_parking = N_PLACE / 2;
 int delta = 28;
 int offset = 19;
 int l_x = 121;
@@ -215,7 +215,7 @@ bool active;
 int click_place(int offset, int delta, int l_x, int r_x)
 {
 int i, space;
-int half_num_parking = PLACE_NUMBER / 2;
+int half_num_parking = N_PLACE / 2;
 
 	if (mouse_y <= Y_PLACE && mouse_y >= Y_PLACE - YSHIP)
 	{
