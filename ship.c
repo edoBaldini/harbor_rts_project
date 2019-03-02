@@ -235,15 +235,15 @@ const int id = get_task_index(arg);
 void compute_mytrace(int ship_id, triple mytrace[X_PORT * Y_PORT], int obj)
 {
 int index_objective;
-bool is_odd;
+bool is_flip;
 BITMAP * cur_trace;
 
 	pthread_mutex_lock(&mutex_route);
 	cur_trace = routes[ship_id].trace;
-	is_odd = routes[ship_id].odd;
+	is_flip = routes[ship_id].flip;
 	pthread_mutex_unlock(&mutex_route);
 
-	make_array_trace(cur_trace, mytrace, is_odd, obj);
+	make_array_trace(cur_trace, mytrace, is_flip, obj);
 	index_objective =  find_index(mytrace, obj);
 	
 	pthread_mutex_lock(&mutex_route);
@@ -266,7 +266,7 @@ int size = last_index;
 	}
 }
 
-void make_array_trace(BITMAP * t, triple trace[PORT_BMP_W * PORT_BMP_H], bool odd, int obj)
+void make_array_trace(BITMAP * t, triple trace[PORT_BMP_W * PORT_BMP_H], bool flip, int obj)
 {
 int color;
 int index = 0;
@@ -274,7 +274,7 @@ int i, j;
 int last_index;
 for (j = PORT_BMP_H; j > 0; --j)   
 	{
-		if (odd)
+		if (flip)
 		{
 			for (i = PORT_BMP_W; i > 0 ; --i)
 			{

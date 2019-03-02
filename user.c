@@ -169,7 +169,7 @@ int index = (id % 3);
 
 	pthread_mutex_lock(&mutex_route);
 	routes[id].trace = enter_trace[index]; 
-	routes[id].odd = (index == 2);
+	routes[id].flip = (index == 2);
 	routes[id].index = -1;
 	pthread_mutex_unlock(&mutex_route);
 
