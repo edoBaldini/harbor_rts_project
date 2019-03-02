@@ -2,13 +2,20 @@
 #define USER_H
 
 //------------------------------------------------------------------------------
-//	USER FUNCTIONS
+//	USER FUNCTIONS: manage the interaction with the user. 
+//	He can interact with the program through the mouse and keyboard.
+// 	
+//	Mouse button pressed over a parked ship:
+//	-	left awakens a ship
+//	-	right adds 200 ms to the parking time of a ship
+//	
+//	Keyboard keys:
+//	-	ESC to terminate the execution
+//	-	SPACE BAR to show the routes of the ships in the map
+//	-	ENTER to create a new ship, once each 2 seconds.
 //------------------------------------------------------------------------------
 
-/*manage the 3 type of input allowed to the user by the keyboard:
-	ESC: 		put the end global variable to true and terminating the program
-	ENTER:		invokes init_ship, allowed once each 2 seconds
-	BAR SPACE: 	set the globa variable show_routes to true, showing the routes*/
+//	manage the 3 keys allowed to the user of the keyboard:
 void botton_pressed();
 
 /*identifies the ship parked in the place clicked by the user.
@@ -16,7 +23,6 @@ void botton_pressed();
 int find_parked();
 
 //	set the parking_time of the parked ship clicked by the user to now waking it
-
 void woke_up();
 
 //	adds 200 ms to the parking_time of the parked ship clicked by the user

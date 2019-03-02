@@ -2,18 +2,18 @@
 #define HARBOR_H
 #include <allegro.h>
 
-#define XWIN			1400						// width monitor
-#define YWIN			700							// height monitor
-#define PERIOD			25							// in ms
-#define DLINE			20							// in ms
-#define PRIO			10							// priority level
-#define AUX_THREAD 		4							// # of auxiliar threads
-#define MAX_THREADS		20							// total number of threads
-#define MAX_SHIPS		MAX_THREADS - AUX_THREAD	// number of ships
-#define EPSILON			3.f							// guardian distance to goal
-#define ENTER_NUMBER	3							// number of entering tracks
-#define	PLACE_NUMBER	8							// number of parking
-#define	SEA_COLOR 		makecol(0,85,165) 			// background color
+#define XWIN			1400					//	width monitor
+#define YWIN			700						//	height monitor
+#define PERIOD			25						//	in ms
+#define DLINE			20						//	in ms
+#define PRIO			10						//	priority level
+#define AUX_THREAD 		4						//	# of auxiliar threads
+#define MAX_THREADS		20						//	total number of threads
+#define MAX_SHIPS		MAX_THREADS - AUX_THREAD//	number of ships
+#define EPSILON			3.f						//	guardian distance to goal
+#define ENTER_NUMBER	3						//	number of entering tracks
+#define	PLACE_NUMBER	8						//	number of parking
+#define	SEA_COLOR 		makecol(0,85,165) 		//	background color
 //------------------------------------------------------------------------------
 //	FOR BOOLEAN DEFINITION
 //------------------------------------------------------------------------------
@@ -23,12 +23,12 @@
 //------------------------------------------------------------------------------
 //	SHIP GLOBAL CONSTANT
 //------------------------------------------------------------------------------
-#define XSHIP			18			// width ship  
-#define YSHIP			54			// height ship
-#define MIN_P_TIME		20000		// min ship parking time, in ms
-#define	MAX_P_TIME		70000		// max ship parking time, in ms
-#define MIN_VEL			1			// minimum speed
-#define	MAX_VEL			3			// maximum speed
+#define XSHIP			18			//	width ship  
+#define YSHIP			54			//	height ship
+#define MIN_P_TIME		20000		//	min ship parking time, in ms
+#define	MAX_P_TIME		70000		//	max ship parking time, in ms
+#define MIN_VEL			1			//	minimum speed
+#define	MAX_VEL			3			//	maximum speed
 
 //-----------------------------------------------------------------------------
 // GLOBAL CONSTANTS related to the radar
@@ -40,8 +40,8 @@
 #define ARES			360			// 	max alpha
 #define RSTEP			1			//	step of the radius
 #define RMIN			0			//	min radius
-#define XRAD			450			// xcenter of the radar = center of the port
-#define YRAD			450			// ycenter of the radar = center of the port
+#define XRAD			450			//	x radar center = x port center
+#define YRAD			450			//	y radar center = y port center
 
 //------------------------------------------------------------------------------
 //	POSITION GLOBAL CONSTANTS
@@ -62,18 +62,18 @@ typedef int bool;
 
 typedef struct ship 				
 {
-	float x, y;					// ship coordinates
-	float traj_grade; 			// inclination angle
-	float vel;					// speed
-	struct timespec p_time;		// parking time
-	bool parking;				// if ship is parked
-	bool active;				// if ship is active 
+	float x, y;					//	ship coordinates
+	float traj_grade; 			//	inclination angle
+	float vel;					//	speed
+	struct timespec p_time;		//	parking time
+	bool parking;				//	if ship is parked
+	bool active;				//	if ship is active 
 }ship;
 
-typedef struct triple 			// struct used to build the positions array
+typedef struct triple 			//	struct used to build the positions array
 {
-	float x, y;
-	int color;
+	float x, y;					//	coordinates
+	int color;					//	color of a bitmap in that coordinates
 }triple;
 
 typedef struct route 			// struct related to ship identifying its route
@@ -124,17 +124,17 @@ extern pthread_mutex_t mutex_s_route;		// for show_route
 //	COMMON FUNCTIONS
 //------------------------------------------------------------------------------
 
-// calculate the angular coefficient (in rad) of the line 
-//													passing between the 2 points
+//	calculate the angular coefficient (in rad) of the line 
+//	passing between the 2 points
 float degree_rect(float x1, float y1, float x2, float y2);
 
-// calulate a random integer in the specified interval
+//	calulate a random integer in the specified interval
 int random_in_range(int min_x, int max_x);
 
-// creates a triple with the specied fields
+//	creates a triple with the specied fields
 triple make_triple(float x, float y, int color);
 
-// check if the two position differs for a tolerant space epsilon
+//	check if the two position differs for a tolerant space epsilon
 bool check_position(float y_ship, int y);
 
 void * user_task(void * arg);
