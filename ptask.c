@@ -3,8 +3,6 @@
 #include <assert.h>
 #include "ptask.h"
 
-
-
 #define NT (128)
 
 struct task_par {

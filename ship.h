@@ -1,9 +1,15 @@
 #ifndef SHIP_H
 #define SHIP_H
 
+enum state {GUARD, PORT, PLACE, EGRESS};
+
 //------------------------------------------------------------------------------
 //	SHIP FUNCTIONS
 //------------------------------------------------------------------------------
+enum state reach_guard(int ship_id, triple mytrace[X_PORT * Y_PORT], ship cur_ship, bool move);
+enum state reach_port(int ship_id, triple mytrace[X_PORT * Y_PORT], ship cur_ship, bool move);
+enum state reach_place(int ship_id, triple mytrace[X_PORT * Y_PORT], ship cur_ship, bool move);
+enum state reach_exit(int ship_id, triple mytrace[X_PORT * Y_PORT], ship cur_ship, bool move);
 void compute_mytrace(int ship_id, triple mytrace[X_PORT * Y_PORT], int obj);
 bool check_forward(float x_cur, float y_cur, float g_cur);
 void follow_track_frw(int id, triple mytrace[], bool move);

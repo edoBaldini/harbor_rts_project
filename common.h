@@ -62,7 +62,7 @@ typedef int bool;
 
 typedef struct ship 				
 {
-	float x, y;					//	ship coordinates
+	float x, y;					//	coordinates
 	float traj_grade; 			//	inclination angle
 	float vel;					//	speed
 	struct timespec p_time;		//	parking time
@@ -136,8 +136,5 @@ triple make_triple(float x, float y, int color);
 
 //	check if the two position differs for a tolerant space epsilon
 bool check_position(float y_ship, int y);
-
-void * user_task(void * arg);
-void * ship_task(void * arg);
 
 #endif

@@ -5,8 +5,6 @@
 #include <stdio.h>
 #include "ptask.h"
 
-enum state {GUARD, PORT, PLACE, EGRESS};
-
 enum state reach_guard(int ship_id, triple mytrace[X_PORT * Y_PORT], ship cur_ship, bool move)
 {
 int index;
@@ -169,65 +167,6 @@ bool exit_reached = check_position(cur_ship.y, Y_PORT - XSHIP) && cur_req == Y_E
 	}
 	return EGRESS;
 }
-
-void * ship_task(void * arg)
-{
-int ship_id;
-enum state step = GUARD;
-bool move;
-bool c_end;
-ship cur_ship;
-triple mytrace[X_PORT * Y_PORT];
-struct timespec now;
-
-	// Task private variables
-const int id = get_task_index(arg);
-	set_activation(id);
-	ship_id 			= id - AUX_THREAD;
-	c_end				= false;
-
-	while (!c_end) 
-	{
-		pthread_mutex_lock(&mutex_end);
-		c_end = end;
-		pthread_mutex_unlock(&mutex_end);
-
-		pthread_mutex_lock(&mutex_fleet);
-		cur_ship = fleet[ship_id];
-		pthread_mutex_unlock(&mutex_fleet);
-		
-		if (cur_ship.active)
-		{
-			switch (step)
-			{
-				case PORT:
-					step = reach_port(ship_id, mytrace, cur_ship, true);
-					break;
-
-				case PLACE:
-					step = reach_place(ship_id, mytrace, cur_ship, true);
-					break;
-
-				case EGRESS:
-					step = reach_exit(ship_id, mytrace, cur_ship, true);
-					break;
-
-				default:
-					move = (check_forward(cur_ship.x, cur_ship.y, 
-											cur_ship.traj_grade)) ? false: true;
-					step = reach_guard(ship_id, mytrace, cur_ship, move);
-
-			}
-		}
-
-		if (deadline_miss(id))
-		{   
-			printf("%d) deadline missed! ship\n", id);
-		}
-		wait_for_activation(id);
-	}
-	return NULL;
- }
 
 //------------------------------------------------------------------------------
 // FUNCTIONS FOR SHIPS

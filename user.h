@@ -16,10 +16,12 @@
 //------------------------------------------------------------------------------
 
 //	manage the 3 keys allowed to the user of the keyboard:
-void botton_pressed();
+void button_pressed();
 
-/*identifies the ship parked in the place clicked by the user.
-	If in that place there is no ship, returns -1 */
+//------------------------------------------------------------------------------
+//	Identifies the ship parked in the place clicked by the user.
+//	If in that place there is no ship returns -1
+//------------------------------------------------------------------------------
 int find_parked();
 
 //	set the parking_time of the parked ship clicked by the user to now waking it

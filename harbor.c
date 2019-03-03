@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <pthread.h>
 #include "ptask.h"
+#include "user.h"
+#include "ship.h"
 //------------------------------------------------------------------------------
 // GLOBAL VARIABLES
 //------------------------------------------------------------------------------
@@ -57,134 +59,16 @@ void view_routes();
 void init(void);
 void fill_places();
 
-void * radar_task(void * arg)
-{   
-bool c_end = false;
-float alpha;
-float a = 0.f;
-const int id = get_task_index(arg);
-	set_activation(id);
+//------------------------------------------------------------------------------
+//	TASK FUNCTIONS
+//------------------------------------------------------------------------------
+void * user_task(void * arg);
+void * ship_task(void * arg);
+void * radar_task(void * arg);
+void * controller_task(void *arg);
+void * display(void *arg);
 
-	while (!c_end) 
-	{   
-		pthread_mutex_lock(&mutex_end);
-		c_end = end;
-		pthread_mutex_unlock(&mutex_end);
-
-		alpha = a * M_PI / 180.f;   // from degree to radiants
-		radar_one_line(alpha);
-		a += 1.8; 
-
-		if (a >= 360.0)
-		{
-			a = 0.0;
-			pthread_mutex_lock(&mutex_radar);
-			clear_bitmap(radar);
-			pthread_mutex_unlock(&mutex_radar);
-		}
-		
-		if (deadline_miss(id))
-		{   
-			printf("%d) deadline missed! radar\n", id);
-		}
-		wait_for_activation(id);
-	}
-
-	destroy_bitmap(radar);
-
-return NULL;
-}
-
-void * controller_task(void *arg)
-{
-int i = 0;
-int ship_to_port = -1;
-int ship_to_place = -1;
-bool c_end = false;
-const int id = get_task_index(arg);
-	set_activation(id);
-
-	while (!c_end) 
-	{
-		pthread_mutex_lock(&mutex_end);
-		c_end = end;
-		pthread_mutex_unlock(&mutex_end);
-
-		ship_to_port = access_port(i, ship_to_port, ship_to_place);
-
-		ship_to_place = access_place(i, ship_to_place);
-		
-		free_trace(i);
-		
-		i = (i < MAX_SHIPS) ? i + 1 : 0;
-
-		if (deadline_miss(id))
-		{   
-			printf("%d) deadline missed! ship\n", id);
-		}
-		wait_for_activation(id);
-
-	}
-
-	return NULL;
-}	
-
-void * display(void *arg)
-{
-BITMAP * port_bmp;
-BITMAP * boat;
-int i;
-bool c_end = false;
-
-	port_bmp = load_bitmap("port.bmp", NULL);
-	boat = load_bitmap("ship_c.bmp", NULL);
-
-	const int id = get_task_index(arg);
-	set_activation(id);
-
-	while (!c_end) {
-		pthread_mutex_lock(&mutex_end);
-		c_end = end;
-		pthread_mutex_unlock(&mutex_end);
-
-		clear_to_color(sea, SEA_COLOR);
-
-		view_ships(boat);
-
-		draw_sprite(screen, port_bmp, 0, 0);
-		
-		if (show_routes)
-		{
-			view_routes();
-		}
-
-		putpixel(screen, X_PORT, Y_PORT, makecol(255,0,255));
-		putpixel(screen, X_PORT, YGUARD_POS, makecol(255,0,255));
-
-		pthread_mutex_lock(&mutex_radar);
-		circle(radar, R_BMP_W / 2, R_BMP_H / 2, R_BMP_H / 2, makecol(255,255,255));
-		blit(radar, screen, 0, 0,910, 0, radar->w, radar->h);
-		pthread_mutex_unlock(&mutex_radar);
-		
-		if (deadline_miss(id))
-		{   
-			printf("%d) deadline missed! display\n", id);
-		}
-		wait_for_activation(id);
-	}
-
-	for (i = 0; i < PLACE_NUMBER; ++i)
-	{
-		destroy_bitmap(places[i].enter_trace);
-		destroy_bitmap(places[i].exit_trace);
-	}
 	
-	destroy_bitmap(port_bmp);
-	destroy_bitmap(sea);
-
-	return NULL;
-}
-
 void init(void)
 {
 
@@ -236,7 +120,6 @@ int main()
 	allegro_exit();
 	return 0;
 }
-
 
 //------------------------------------------------------------------------------
 // FUNCTIONS FOR RADAR
@@ -587,4 +470,241 @@ triple make_triple(float x, float y, int color)
 	coordinates.y = y;
 	coordinates.color = color;
 	return coordinates;
+}
+
+//------------------------------------------------------------------------------
+//	TASK FUNCTIONS
+//------------------------------------------------------------------------------
+
+
+void * ship_task(void * arg)
+{
+int ship_id;
+enum state step = GUARD;
+bool move;
+bool c_end;
+ship cur_ship;
+triple mytrace[X_PORT * Y_PORT];
+struct timespec now;
+
+	// Task private variables
+const int id = get_task_index(arg);
+	set_activation(id);
+	ship_id 			= id - AUX_THREAD;
+	c_end				= false;
+
+	while (!c_end) 
+	{
+		pthread_mutex_lock(&mutex_end);
+		c_end = end;
+		pthread_mutex_unlock(&mutex_end);
+
+		pthread_mutex_lock(&mutex_fleet);
+		cur_ship = fleet[ship_id];
+		pthread_mutex_unlock(&mutex_fleet);
+		
+		if (cur_ship.active)
+		{
+			switch (step)
+			{
+				case PORT:
+					step = reach_port(ship_id, mytrace, cur_ship, true);
+					break;
+
+				case PLACE:
+					step = reach_place(ship_id, mytrace, cur_ship, true);
+					break;
+
+				case EGRESS:
+					step = reach_exit(ship_id, mytrace, cur_ship, true);
+					break;
+
+				default:
+					move = (check_forward(cur_ship.x, cur_ship.y, 
+											cur_ship.traj_grade)) ? false: true;
+					step = reach_guard(ship_id, mytrace, cur_ship, move);
+
+			}
+		}
+
+		if (deadline_miss(id))
+		{   
+			printf("%d) deadline missed! ship\n", id);
+		}
+		wait_for_activation(id);
+	}
+	return NULL;
+ }
+
+//------------------------------------------------------------------------------
+//	Defines the behavior of the system to the user's interaction. 
+//	The user can interact via mouse and keyboard.
+//
+//	Mouse button pressed over a parked ship:
+//	-	left invokes woke_up()
+//	-	right invokes add_parking_time()
+//	
+//	The keyboard interaction is managed thanks to button_pressed()
+//------------------------------------------------------------------------------
+void * user_task(void * arg)
+{   
+bool c_end = false;
+const int id = get_task_index(arg);
+	set_activation(id);
+
+	while (!c_end) 
+	{		
+		pthread_mutex_lock(&mutex_end);
+		c_end = end;
+		pthread_mutex_unlock(&mutex_end);
+
+		switch (mouse_b)
+		{
+			case 1:
+					woke_up();
+					break;
+
+			case 2:
+					add_parking_time();
+					break;
+		}
+
+		button_pressed();
+
+		if (deadline_miss(id))
+		{   
+			printf("%d) deadline missed! radar\n", id);
+		}
+		wait_for_activation(id);
+	}
+
+return NULL;
+}
+
+void * radar_task(void * arg)
+{   
+bool c_end = false;
+float alpha;
+float a = 0.f;
+const int id = get_task_index(arg);
+	set_activation(id);
+
+	while (!c_end) 
+	{   
+		pthread_mutex_lock(&mutex_end);
+		c_end = end;
+		pthread_mutex_unlock(&mutex_end);
+
+		alpha = a * M_PI / 180.f;   // from degree to radiants
+		radar_one_line(alpha);
+		a += 1.8; 
+
+		if (a >= 360.0)
+		{
+			a = 0.0;
+			pthread_mutex_lock(&mutex_radar);
+			clear_bitmap(radar);
+			pthread_mutex_unlock(&mutex_radar);
+		}
+		
+		if (deadline_miss(id))
+		{   
+			printf("%d) deadline missed! radar\n", id);
+		}
+		wait_for_activation(id);
+	}
+
+	destroy_bitmap(radar);
+
+return NULL;
+}
+
+void * controller_task(void *arg)
+{
+int i = 0;
+int ship_to_port = -1;
+int ship_to_place = -1;
+bool c_end = false;
+const int id = get_task_index(arg);
+	set_activation(id);
+
+	while (!c_end) 
+	{
+		pthread_mutex_lock(&mutex_end);
+		c_end = end;
+		pthread_mutex_unlock(&mutex_end);
+
+		ship_to_port = access_port(i, ship_to_port, ship_to_place);
+
+		ship_to_place = access_place(i, ship_to_place);
+		
+		free_trace(i);
+		
+		i = (i < MAX_SHIPS) ? i + 1 : 0;
+
+		if (deadline_miss(id))
+		{   
+			printf("%d) deadline missed! ship\n", id);
+		}
+		wait_for_activation(id);
+
+	}
+
+	return NULL;
+}
+
+void * display(void *arg)
+{
+BITMAP * port_bmp;
+BITMAP * boat;
+int i;
+bool c_end = false;
+
+	port_bmp = load_bitmap("port.bmp", NULL);
+	boat = load_bitmap("ship_c.bmp", NULL);
+
+	const int id = get_task_index(arg);
+	set_activation(id);
+
+	while (!c_end) {
+		pthread_mutex_lock(&mutex_end);
+		c_end = end;
+		pthread_mutex_unlock(&mutex_end);
+
+		clear_to_color(sea, SEA_COLOR);
+
+		view_ships(boat);
+
+		draw_sprite(screen, port_bmp, 0, 0);
+		
+		if (show_routes)
+		{
+			view_routes();
+		}
+
+		putpixel(screen, X_PORT, Y_PORT, makecol(255,0,255));
+		putpixel(screen, X_PORT, YGUARD_POS, makecol(255,0,255));
+
+		pthread_mutex_lock(&mutex_radar);
+		circle(radar, R_BMP_W / 2, R_BMP_H / 2, R_BMP_H / 2, makecol(255,255,255));
+		blit(radar, screen, 0, 0,910, 0, radar->w, radar->h);
+		pthread_mutex_unlock(&mutex_radar);
+		
+		if (deadline_miss(id))
+		{   
+			printf("%d) deadline missed! display\n", id);
+		}
+		wait_for_activation(id);
+	}
+
+	for (i = 0; i < PLACE_NUMBER; ++i)
+	{
+		destroy_bitmap(places[i].enter_trace);
+		destroy_bitmap(places[i].exit_trace);
+	}
+	
+	destroy_bitmap(port_bmp);
+	destroy_bitmap(sea);
+
+	return NULL;
 }
