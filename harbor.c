@@ -63,7 +63,6 @@ void fill_places();
 //	TASK FUNCTIONS
 //------------------------------------------------------------------------------
 void * user_task(void * arg);
-void * ship_task(void * arg);
 void * radar_task(void * arg);
 void * controller_task(void *arg);
 void * display(void *arg);
@@ -133,10 +132,10 @@ bool check_ship(int color)
 
 float degree_rect(float x1, float y1, float x2, float y2)
 {   
-	float angular_coefficient = (x1 == x2) ? x1 : ((y2 - y1) / (x2 - x1));
+	float angular_coefficient = ((y2 - y1) / (x2 - x1));
 	float degree = atanf(angular_coefficient);
-	return (x2 <= x1) ? degree + M_PI  : degree + 2 * M_PI;
 
+	return (x2 < x1) ? degree + M_PI  : degree + 2 * M_PI;
 }
 
 float degree_fix(float grade)
@@ -185,7 +184,7 @@ void fill_trace(int ship, int i, BITMAP * trace)
 
 bool assign_trace(int ship)
 {
-int i = random_in_range(0, PLACE_NUMBER -1);
+int i = 7;//random_in_range(0, PLACE_NUMBER -1);
 bool available;
 BITMAP * enter_trace;
 
@@ -453,7 +452,7 @@ int i, j;
 		clear_to_color(places[i].enter_trace, makecol(255,0,255));
 		clear_to_color(places[i].exit_trace, makecol(255,0,255));
 	
-		draw_sprite_h_flip(places[i].enter_trace, places[7 - i].enter_trace,0,0);
+		draw_sprite_h_flip(places[i].enter_trace, places[7 - i].enter_trace,1,0);
 		draw_sprite_h_flip(places[i].exit_trace, places[7 - i].exit_trace,0,0);
 	}	
 }
@@ -475,66 +474,6 @@ triple make_triple(float x, float y, int color)
 //------------------------------------------------------------------------------
 //	TASK FUNCTIONS
 //------------------------------------------------------------------------------
-
-
-void * ship_task(void * arg)
-{
-int ship_id;
-enum state step = GUARD;
-bool move;
-bool c_end;
-ship cur_ship;
-triple mytrace[X_PORT * Y_PORT];
-struct timespec now;
-
-	// Task private variables
-const int id = get_task_index(arg);
-	set_activation(id);
-	ship_id 			= id - AUX_THREAD;
-	c_end				= false;
-
-	while (!c_end) 
-	{
-		pthread_mutex_lock(&mutex_end);
-		c_end = end;
-		pthread_mutex_unlock(&mutex_end);
-
-		pthread_mutex_lock(&mutex_fleet);
-		cur_ship = fleet[ship_id];
-		pthread_mutex_unlock(&mutex_fleet);
-		
-		if (cur_ship.active)
-		{
-			switch (step)
-			{
-				case PORT:
-					step = reach_port(ship_id, mytrace, cur_ship, true);
-					break;
-
-				case PLACE:
-					step = reach_place(ship_id, mytrace, cur_ship, true);
-					break;
-
-				case EGRESS:
-					step = reach_exit(ship_id, mytrace, cur_ship, true);
-					break;
-
-				default:
-					move = (check_forward(cur_ship.x, cur_ship.y, 
-											cur_ship.traj_grade)) ? false: true;
-					step = reach_guard(ship_id, mytrace, cur_ship, move);
-
-			}
-		}
-
-		if (deadline_miss(id))
-		{   
-			printf("%d) deadline missed! ship\n", id);
-		}
-		wait_for_activation(id);
-	}
-	return NULL;
- }
 
 //------------------------------------------------------------------------------
 //	Defines the behavior of the system to the user's interaction. 

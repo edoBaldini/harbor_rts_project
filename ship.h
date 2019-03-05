@@ -23,4 +23,6 @@ void update_rr(int id, int repl, int req);
 bool get_repl(int ship_id);
 bool get_req(int ship_id);
 int update_state(int id, int new_state, int obj, int last_index);
+void * ship_task(void * arg);
+
 #endif

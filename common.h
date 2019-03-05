@@ -23,8 +23,8 @@
 //------------------------------------------------------------------------------
 //	SHIP GLOBAL CONSTANT
 //------------------------------------------------------------------------------
-#define XSHIP			18			//	width ship  
-#define YSHIP			54			//	height ship
+#define XSHIP			16			//	width ship  
+#define YSHIP			52			//	height ship
 #define MIN_P_TIME		20000		//	min ship parking time, in ms
 #define	MAX_P_TIME		70000		//	max ship parking time, in ms
 #define MIN_VEL			1			//	minimum speed
@@ -124,8 +124,9 @@ extern pthread_mutex_t mutex_s_route;		// for show_route
 //	COMMON FUNCTIONS
 //------------------------------------------------------------------------------
 
-//	calculate the angular coefficient (in rad) of the line 
-//	passing between the 2 points
+//------------------------------------------------------------------------------
+//	rates the angular coefficient (in rad) of the rect passing between 2 points
+//------------------------------------------------------------------------------
 float degree_rect(float x1, float y1, float x2, float y2);
 
 //	calulate a random integer in the specified interval

@@ -5,6 +5,65 @@
 #include <stdio.h>
 #include "ptask.h"
 
+void * ship_task(void * arg)
+{
+int ship_id;
+enum state step = GUARD;
+bool move;
+bool c_end;
+ship cur_ship;
+triple mytrace[X_PORT * Y_PORT];
+struct timespec now;
+
+	// Task private variables
+const int id = get_task_index(arg);
+	set_activation(id);
+	ship_id 			= id - AUX_THREAD;
+	c_end				= false;
+
+	while (!c_end) 
+	{
+	
+		pthread_mutex_lock(&mutex_end);
+		c_end = end;
+		pthread_mutex_unlock(&mutex_end);
+
+		pthread_mutex_lock(&mutex_fleet);
+		cur_ship = fleet[ship_id];
+		pthread_mutex_unlock(&mutex_fleet);
+		
+		if (cur_ship.active)
+		{
+			switch (step)
+			{
+				case PORT:
+					step = reach_port(ship_id, mytrace, cur_ship, true);
+					break;
+
+				case PLACE:
+					step = reach_place(ship_id, mytrace, cur_ship, true);
+					break;
+
+				case EGRESS:
+					step = reach_exit(ship_id, mytrace, cur_ship, true);
+					break;
+
+				default:
+					move = (check_forward(cur_ship.x, cur_ship.y, 
+											cur_ship.traj_grade)) ? false: true;
+					step = reach_guard(ship_id, mytrace, cur_ship, move);
+
+			}
+		}
+
+		if (deadline_miss(id))
+		{   
+			printf("%d) deadline missed! ship\n", id);
+		}
+		wait_for_activation(id);
+	}
+	return NULL;
+ }
 enum state reach_guard(int ship_id, triple mytrace[X_PORT * Y_PORT], ship cur_ship, bool move)
 {
 int index;
@@ -102,6 +161,7 @@ bool parked = check_position(cur_ship.y, Y_PLACE - YSHIP);
 
 					cur_ship.parking = false;
 					step = update_state(ship_id, EGRESS, Y_EXIT, 0);
+
 					return step;
 				}
 			}
@@ -220,8 +280,8 @@ for (j = PORT_BMP_H; j > 0; --j)
 				color = getpixel(t, i, j);
 				if (color == 0 || color == makecol(255, 0, 0))
 				{
-					trace[index] = make_triple(i,j, color);
-					index ++;
+					trace[index] = make_triple(i, j , color);
+					index++;
 				}
 			}
 		}
@@ -232,13 +292,13 @@ for (j = PORT_BMP_H; j > 0; --j)
 				int color = getpixel(t, i, j);
 				if (color == 0 || color == (makecol(255,0,0)))
 				{
-					trace[index] = make_triple(i,j, color);
-					index ++;
+					trace[index] = make_triple(i, j, color);
+					index++;
 				}
 			}
 		}
 	}
-	last_index = -- index;
+	last_index = --index;
 
 	if (obj == Y_EXIT)
 		reverse_array(trace, last_index);
@@ -274,10 +334,12 @@ bool check_position(float y_ship, int y)
 
 void grade_filter(int id, int i, triple mytrace[X_PORT * Y_PORT])
 {
+float grade_epsilon = 0.02;
 float p = powf(M_E,(-0.115129 * PERIOD));
 float grade = p * (degree_rect(fleet[id].x, fleet[id].y, mytrace[i].x,
 						 mytrace[i].y)) + (1 - p) * (fleet[id].traj_grade);
-fleet[id].traj_grade = grade;
+
+	fleet[id].traj_grade = grade;
 
 }
 
@@ -301,20 +363,16 @@ void follow_track_frw(int id, triple mytrace[X_PORT * Y_PORT], bool move)
 	pthread_mutex_lock(&mutex_fleet);
 	d_obj = distance_vector(fleet[id].x, fleet[id].y, mytrace[last_index].x, 
 												mytrace[last_index].y);
-	fleet[id].vel = MIN((d_obj) * p, fleet[id].vel);
+	fleet[id].vel = MIN((d_obj / 2) * p, fleet[id].vel);
 	fleet[id].vel = MIN(MAX_VEL, fleet[id].vel);
 	
-	if (mytrace[i].color == red)
-	{
+	if (mytrace[i].color == red) {
 		fleet[id].vel -= (fleet[id].vel - MIN_VEL) * p;
-	}
-
-	else 
-	{
+	} else {
 		fleet[id].vel += (MAX_VEL - fleet[id].vel) * p;
 	}
 
-	des = fleet[id].vel*PERIOD;
+	des = fleet[id].vel * PERIOD;
 	acc = distance_vector(fleet[id].x, fleet[id].y, mytrace[i].x, mytrace[i].y);
 
 	while (des > acc)
