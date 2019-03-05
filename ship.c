@@ -307,7 +307,7 @@ for (j = PORT_BMP_H; j > 0; --j)
 bool check_forward(float x_cur, float y_cur, float g_cur)
 {
 float x, y, j;
-int color1, color2;
+int color;
 
 	for (j = (YSHIP/2) + 2; j < 130; ++j )
 	{
@@ -317,7 +317,7 @@ int color1, color2;
 		color1 = getpixel(sea, x, y);
 		pthread_mutex_unlock(&mutex_sea);
 
-		if ((color1 != SEA_COLOR && color1 != -1))
+		if ((color != SEA_COLOR && color != -1))
 		{
 			return true; 		
 		}
