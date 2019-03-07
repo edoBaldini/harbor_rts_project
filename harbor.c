@@ -29,6 +29,7 @@ pthread_mutex_t mutex_sea;
 pthread_mutex_t mutex_radar;
 pthread_mutex_t mutex_end;
 pthread_mutex_t mutex_s_route;
+pthread_mutex_t mutex_s_activated;
 
 //------------------------------------------------------------------------------
 //	RADAR FUNCTIONS
@@ -89,9 +90,9 @@ void init(void)
 	circle(radar, R_BMP_W / 2, R_BMP_H / 2, R_BMP_H / 2, makecol(255, 255, 255));
 	fill_places();
 
-	enter_trace[0] = load_bitmap("e1_c.bmp", NULL);
-	enter_trace[1] = load_bitmap("e3_c.bmp", NULL);
-	enter_trace[2] = load_bitmap("e2_c.bmp", NULL);
+	enter_trace[0] = load_bitmap("e1.bmp", NULL);
+	enter_trace[1] = load_bitmap("e3.bmp", NULL);
+	enter_trace[2] = load_bitmap("e2.bmp", NULL);
 
 	srand(time(0));
 
@@ -103,6 +104,7 @@ void init(void)
 	pthread_mutex_init(&mutex_radar, NULL);
 	pthread_mutex_init(&mutex_end, NULL);
 	pthread_mutex_init(&mutex_s_route, NULL);
+	pthread_mutex_init(&mutex_s_activated, NULL);
 
 	task_create(display, PERIOD	, DLINE, PRIO);
 	task_create(radar_task, PERIOD, DLINE, PRIO);
@@ -184,7 +186,7 @@ void fill_trace(int ship, int i, BITMAP * trace)
 
 bool assign_trace(int ship)
 {
-int i = 7;//random_in_range(0, PLACE_NUMBER -1);
+int i = random_in_range(0, PLACE_NUMBER -1);
 bool available;
 BITMAP * enter_trace;
 
@@ -339,8 +341,10 @@ int cur_req;
 void view_ships(BITMAP * boat)
 {
 int i;
+int cur_s_activated = get_s_activated();
 ship cur_ship;
-	for (i = 0; i < ships_activated; ++i)
+
+	for (i = 0; i < cur_s_activated; ++i)
 	{
 		pthread_mutex_lock(&mutex_fleet);
 		cur_ship = fleet[i];
@@ -361,11 +365,12 @@ void view_routes()
 {
 int i, j;
 int counter = 0;
-ship cur_ship;
 int entrance[3] = {-1, -1, -1};
+int cur_s_activated = get_s_activated();
+ship cur_ship;
 bool parked;
 
-	for (i = 0; i < ships_activated; ++i)
+	for (i = 0; i < cur_s_activated; ++i)
 	{
 		pthread_mutex_lock(&mutex_fleet);
 		cur_ship = fleet[i];
@@ -462,14 +467,6 @@ int random_in_range(int min_x, int max_x)
 	return rand() % (max_x + 1 - min_x) + min_x;
 }
 
-triple make_triple(float x, float y, int color)
-{
-	triple coordinates;
-	coordinates.x = x;
-	coordinates.y = y;
-	coordinates.color = color;
-	return coordinates;
-}
 
 //------------------------------------------------------------------------------
 //	TASK FUNCTIONS

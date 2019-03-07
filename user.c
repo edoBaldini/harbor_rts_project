@@ -6,7 +6,7 @@
 #include <math.h>
 #include <stdio.h>
 
-struct timespec pressed;	//	time when ENTER is pressed + delay
+static struct timespec pressed;	//	time when ENTER is pressed + delay
 
 //------------------------------------------------------------------------------
 //	Reads the key pressed by the keyboard.
@@ -126,11 +126,12 @@ int delay = 200;				//	delay that must be added to the parking time
 //	initialize the fields of the ship and its route having the indicated id.
 //	i > -1: the ship already existed so will mantain its id.
 //	i = -1: will be activated a new ship with new id and the global variable
-//	ship_activated will be incremented.
+//	ships_activated will be incremented.
 //------------------------------------------------------------------------------
 void initialize_ship(int i)
 {
-int id = (i > -1)? i : ships_activated;	//	ship id
+int cur_s_activated = get_s_activated();	// current number of ships activated
+int id = (i > -1)? i : cur_s_activated;	//	ship id
 int index = (id % ENTER_NUMBER);	//	indicates the enter trace assigned 
 
 	pthread_mutex_lock(&mutex_fleet);
@@ -148,13 +149,14 @@ int index = (id % ENTER_NUMBER);	//	indicates the enter trace assigned
 	routes[id].index = -1;	//	the ship position index along the trace
 	pthread_mutex_unlock(&mutex_route);
 
-	if (id == ships_activated)
+	if (id == cur_s_activated)
 	{
-		printf("ships_activated  %d  MAX_SHIPS %d\n", ships_activated + 1, 
+		printf("ships_activated  %d  MAX_SHIPS %d\n", cur_s_activated + 1, 
 																	MAX_SHIPS);
 		
-		//	if a new id has been used, updates the ship_activated variable	
-		ships_activated += 1;	
+		//	new id has been used, updates the current number of ships
+		cur_s_activated += 1;
+		update_s_activated(cur_s_activated);	// update the global variable
 		task_create(ship_task, PERIOD, DLINE, PRIO);	//	starts a new thread
 	}
 
@@ -174,10 +176,11 @@ int index = (id % ENTER_NUMBER);	//	indicates the enter trace assigned
 void init_ship()
 {
 int i = 0;
+int cur_s_activated = get_s_activated();
 bool active;	// state of a ship
 bool reassigned = false;
 
-	if (ships_activated < MAX_SHIPS)
+	if (cur_s_activated < MAX_SHIPS)
 	{
 		initialize_ship(-1);	//	initialize a new ship
 	}
@@ -237,4 +240,24 @@ int r_x = PORT_BMP_W - l_x - delta - (half_num_parking - 1) * (offset + delta);
 		return -1;	//	place not found
 	}
 	else return -1;	//	place not found
+}
+
+//	update safe way the global variable ships_activated with the given new value
+void update_s_activated(int new)
+{
+	pthread_mutex_lock(&mutex_s_activated);
+	ships_activated = new;
+	pthread_mutex_unlock(&mutex_s_activated);
+}
+
+//	get safe way the value of the global variable ships_activated
+int get_s_activated()
+{
+int cur_s;
+	
+	pthread_mutex_lock(&mutex_s_activated);
+	cur_s = ships_activated;
+	pthread_mutex_unlock(&mutex_s_activated);
+
+	return cur_s;
 }
