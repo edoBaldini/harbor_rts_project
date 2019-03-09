@@ -90,9 +90,9 @@ void init(void)
 	circle(radar, R_BMP_W / 2, R_BMP_H / 2, R_BMP_H / 2, makecol(255, 255, 255));
 	fill_places();
 
-	enter_trace[0] = load_bitmap("e1.bmp", NULL);
-	enter_trace[1] = load_bitmap("e3.bmp", NULL);
-	enter_trace[2] = load_bitmap("e2.bmp", NULL);
+	enter_trace[0] = load_bitmap("e1_c.bmp", NULL);
+	enter_trace[1] = load_bitmap("e3_c.bmp", NULL);
+	enter_trace[2] = load_bitmap("e2_c.bmp", NULL);
 
 	srand(time(0));
 
@@ -132,13 +132,7 @@ bool check_ship(int color)
 	return color == blue;
 }
 
-float degree_rect(float x1, float y1, float x2, float y2)
-{   
-	float angular_coefficient = ((y2 - y1) / (x2 - x1));
-	float degree = atanf(angular_coefficient);
 
-	return (x2 < x1) ? degree + M_PI  : degree + 2 * M_PI;
-}
 
 float degree_fix(float grade)
 {
@@ -461,12 +455,6 @@ int i, j;
 		draw_sprite_h_flip(places[i].exit_trace, places[7 - i].exit_trace,0,0);
 	}	
 }
-
-int random_in_range(int min_x, int max_x)
-{
-	return rand() % (max_x + 1 - min_x) + min_x;
-}
-
 
 //------------------------------------------------------------------------------
 //	TASK FUNCTIONS

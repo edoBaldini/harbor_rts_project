@@ -11,7 +11,7 @@ void * ship_task(void * arg)
 {
 int ship_id;						//	id of a ship
 enum state step = GUARD;			//	a ship starts with GUARD state
-bool restrain;						//	says if the ship must brake
+bool curb;						//	says if the ship must brake
 bool c_end = false;							//	if true the ship terminates
 ship cur_ship;						//	contains the current values of the ship
 
@@ -42,26 +42,27 @@ const int id = get_task_index(arg);	//	id of the task
 			{
 				//	ship is above YGUARD_POS and tries to reach Y_PORT
 				case PORT:	
-					step = reach_port(ship_id, mytrace, cur_ship, true);
+					step = reach_port(ship_id, mytrace, cur_ship, false);
 					break;
 
 				//	ship is above Y_PORT and tries to reach Y_PLACE
 				case PLACE:
-					step = reach_place(ship_id, mytrace, cur_ship, true);
+					step = reach_place(ship_id, mytrace, cur_ship, false);
 					break;
 
 				//	ship has terminated its parking time and tries to exit
 				case EGRESS:
-					step = reach_exit(ship_id, mytrace, cur_ship, true);
+					step = reach_exit(ship_id, mytrace, cur_ship, false);
 					break;
 
 				//	ship is onset of the map and tries to reach YGUARD_POS
 				default:
 
-					// true if there is another ship ahead of this on the map
-					restrain = check_forward(cur_ship.x, cur_ship.y, 
+					//	true if there is another ship ahead of this on the map
+					//	this is the unique case in which curb can be true
+					curb = check_forward(cur_ship.x, cur_ship.y, 
 											cur_ship.traj_grade);
-					step = reach_guard(ship_id, mytrace, cur_ship, restrain);
+					step = reach_guard(ship_id, mytrace, cur_ship, curb);
 
 			}
 		}
@@ -73,255 +74,215 @@ const int id = get_task_index(arg);	//	id of the task
 		wait_for_activation(id);
 	}
 	return NULL;
- }
-enum state reach_guard(int ship_id, triple mytrace[X_PORT * Y_PORT], ship cur_ship, bool restrain)
+}
+
+//	Defines the behavior of a ship that has to reach the guard position.
+enum state reach_guard(int ship_id, triple mytrace[X_PORT * Y_PORT], 
+												ship cur_ship, bool curb)
 {
-int index;
-enum state step;
-bool guard_reached = check_position(cur_ship.y, YGUARD_POS);
+int index;	//	index of the position of the ship on the trace
+int last_index;	//	index in which resides the target position in mytrace
+
+//	true when the ship will reach the YGUARD_POS
+bool guard_reached = check_position(cur_ship.y, YGUARD_POS);	
+	
 	pthread_mutex_lock(&mutex_route);
 	index = routes[ship_id].index;
 	pthread_mutex_unlock(&mutex_route);
 
-	if (index == -1)
+	if (index == -1)	// if index == -1 means that the ship has a new trace
 	{
+		//	fill mytrace with the positions that the ship must follow
 		compute_mytrace(ship_id, mytrace, YGUARD_POS);
 	}
 
 	if(guard_reached)
 	{
-		index = find_index(mytrace, Y_PORT);
+		//	computes the last index for the next step. 
+		last_index = find_index(mytrace, Y_PORT);
+
 		pthread_mutex_lock(&mutex_route);
-		routes[ship_id].last_index = index;
+		//	updates the route last index with the new value
+		routes[ship_id].last_index = last_index;
 		pthread_mutex_unlock(&mutex_route);
+
+		//	set in safe way request_access to Y_PORT and reply_access to false
 		update_rr(ship_id, false, Y_PORT);
-
-		return PORT;
+		return PORT;	//	next state PORT
 	}
-
-	follow_track_frw(ship_id, mytrace, restrain);
-	return GUARD;
+	//	updates the ship attributes following the array mytrace
+	follow_track_frw(ship_id, mytrace, curb);
+	
+	return GUARD;	//	current state
 }
 
-enum state reach_port(int ship_id, triple mytrace[X_PORT * Y_PORT], ship cur_ship, bool restrain)
+//	Defines the behavior of a ship that has to reach the port position
+enum state reach_port(int ship_id, triple mytrace[X_PORT * Y_PORT],
+												ship cur_ship, bool curb)
 {
-enum state step;	
-bool cur_repl = get_repl(ship_id);	
-bool port_reached = check_position(cur_ship.y, Y_PORT);
+//	true if the ship has reached Y_PORT
+bool port_reached = check_position(cur_ship.y, Y_PORT);	
+bool cur_repl = get_repl(ship_id);	//	current reply_access value
 
-	if (cur_repl)
+	if (cur_repl)	//	if true the ship can move
 	{
 		if(port_reached)
 		{
+			//	set safely request_access to Y_PLACE and reply_access to false
 			update_rr(ship_id, false, Y_PLACE);
-			return PLACE;
+			return PLACE;	//	next state PLACE
 		}
 		else 
 		{
-			follow_track_frw(ship_id, mytrace, false);
+			//	updates the ship attributes following the array mytrace
+			follow_track_frw(ship_id, mytrace, curb);
 		}
 	}
 
-	return PORT;
+	return PORT;	//	current state
 }
 
-enum state reach_place(int ship_id, triple mytrace[X_PORT * Y_PORT], ship cur_ship, bool restrain)
+//	Defines the behavior of a ship that has to reach the place position
+//	When the ship reaches its place it will remain still for a certain period
+enum state reach_place(int ship_id, triple mytrace[X_PORT * Y_PORT],
+												ship cur_ship, bool curb)
 {
-int index;
-enum state step;
-int time_wakeup;
-struct timespec now;
-bool cur_repl = get_repl(ship_id);
+
+int index;	//	index of the position of the ship on the trace
+int time_wakeup;	//	indicates when the ship has elapsed its parking time
+int parking_time;	//	period in which the ship will remain in the place
+struct timespec now;	//	current hourly
+bool cur_repl = get_repl(ship_id);	//	current reply_access value
+
+//	true when the bow reach the place's ingress
 bool place_reached = check_position(cur_ship.y, Y_PLACE + XSHIP);
+//	true when the stern overcomes the place's ingress
 bool parked = check_position(cur_ship.y, Y_PLACE - YSHIP);
 	
 	pthread_mutex_lock(&mutex_route);
 	index = routes[ship_id].index;
 	pthread_mutex_unlock(&mutex_route);
-	
 	clock_gettime(CLOCK_MONOTONIC, &now);
 	time_wakeup = time_cmp(now, cur_ship.p_time);
 	
 	if (cur_repl)
 	{
-		if (index == -1)
-		{
+		if (index == -1) {
+			//	fill mytrace with the positions that the ship must follow
 			compute_mytrace(ship_id, mytrace, Y_PLACE - YSHIP);
 		}
 
-		if (place_reached)
-		{
-			update_rr(ship_id, cur_repl, 1);
+		if (place_reached) {
+			
+			update_rr(ship_id, cur_repl, 1);//	set safely request_access to 1
 		}
 
-		if(parked)
-		{
-			if (!cur_ship.parking)
-			{	
+		if(parked) {
+			
+			//	if the ship is in place but is still not parked
+			if (!cur_ship.parking) {	
+				parking_time = random_in_range(MIN_P_TIME, MAX_P_TIME);
 				cur_ship.parking = true;
+
 				pthread_mutex_lock(&mutex_fleet);
 				clock_gettime(CLOCK_MONOTONIC, &fleet[ship_id].p_time);
-				time_add_ms(&fleet[ship_id].p_time, random_in_range(MIN_P_TIME, MAX_P_TIME));
+				time_add_ms(&fleet[ship_id].p_time, parking_time);
 				fleet[ship_id].parking = true;
 				pthread_mutex_unlock(&mutex_fleet);
-			}
-			else
-			{
-				if (time_wakeup >= 0)
-				{
+			} else {
+
+				if (time_wakeup >= 0) {	//	if ship has elapsed its parking time
 					pthread_mutex_lock(&mutex_fleet);
 					fleet[ship_id].parking = false;
 					pthread_mutex_unlock(&mutex_fleet);
-
 					cur_ship.parking = false;
+
+			//	set safely request_access to Y_EXIT and reply_access to false
 					update_rr(ship_id, false, Y_EXIT);
 
-					return EGRESS;
+					return EGRESS;	//	next step EGRESS
 				}
 			}
-		}
-		else
-		{	
-			follow_track_frw(ship_id, mytrace, false);
+		} else {	
+			//	updates the ship attributes following the array mytrace
+			follow_track_frw(ship_id, mytrace, curb);
 		}
 	}
-	return PLACE;	
+	return PLACE;	//	current state
 }
 
-enum state reach_exit(int ship_id, triple mytrace[X_PORT * Y_PORT], ship cur_ship, bool restrain)
+//	Defines the behavior of a ship that has to reach the exit
+enum state reach_exit(int ship_id, triple mytrace[X_PORT * Y_PORT], 
+													ship cur_ship, bool curb)
 {
-int index;
-enum state step;
-bool cur_repl = get_repl(ship_id);
-int cur_req = get_req(ship_id);
-bool exit_reached = check_position(cur_ship.y, Y_PORT - XSHIP) && cur_req == Y_EXIT;
-	
+int index;	//	index of the position of the ship on the trace
+int cur_req = get_req(ship_id);	//	current request_access value
+
+//	true when the ship has overcome the port and still requests Y_EXIT
+bool exit_reached = check_position(cur_ship.y, Y_PORT - XSHIP) && 
+															cur_req == Y_EXIT;
+bool cur_repl = get_repl(ship_id);	//	current reply_access value
+
 	pthread_mutex_lock(&mutex_route);
 	index = routes[ship_id].index;
 	pthread_mutex_unlock(&mutex_route);
 	
 	if (cur_repl)
 	{ 
-		if (index == -1)
-		{
+		if (index == -1) {
+			//	fill mytrace with the positions that the ship must follow
 			compute_mytrace(ship_id, mytrace, Y_EXIT);
 		}
 
-		if (cur_ship.y < mytrace[0].y)
-		{
+		//	if the ship has not reach the first position of the array
+		if (cur_ship.y < mytrace[0].y) {
 			rotate90_ship(ship_id, cur_ship.x, Y_PLACE, mytrace[0].y + YSHIP);
 		}
-		else if (cur_ship.x <= EPSILON + YSHIP || cur_ship.x >= PORT_BMP_W - EPSILON - YSHIP)
+
+		//	if the ship is reaching the boundary of the map
+		else if (cur_ship.x <= EPSILON + YSHIP || 
+								cur_ship.x >= PORT_BMP_W - EPSILON - YSHIP)
 		{
+			//	updates the ship attributes guiding it outside the map
 			exit_ship(ship_id, cur_ship.x);
+
+			//	if the ship is outside of the map
 			if (cur_ship.x < -YSHIP || cur_ship.x > PORT_BMP_W + YSHIP)
 			{
+		//	set safely request_access to YGUARD_POS and reply_access to false	
 				update_rr(ship_id, false, YGUARD_POS);
 				cur_ship.active = false;
 
 				pthread_mutex_lock(&mutex_fleet);
-				fleet[ship_id].active = false;
+				fleet[ship_id].active = false;	//	ship is no more active
 				pthread_mutex_unlock(&mutex_fleet);	
 					
 				pthread_mutex_lock(&mutex_route);
 				routes[ship_id].trace = NULL;
 				pthread_mutex_unlock(&mutex_route);
-				return GUARD;
+				return GUARD;	//	come back to the first step
 			}
 		}
-		else
-		{
-			follow_track_frw(ship_id, mytrace, false);
+		else {
+			//	updates the ship attributes following the array mytrace
+			follow_track_frw(ship_id, mytrace, curb);
 		}
 
-		if (exit_reached)
-		{
+		if (exit_reached) {
+			//	set safely request_access to -1
 			update_rr(ship_id, cur_repl, -1);
 		}
 	}
-	return EGRESS;
+	return EGRESS;	//	current state
 }
 
-//------------------------------------------------------------------------------
-// FUNCTIONS FOR SHIPS
-//------------------------------------------------------------------------------
-void compute_mytrace(int ship_id, triple mytrace[X_PORT * Y_PORT], int obj)
-{
-int index_objective;
-bool is_flip;
-BITMAP * cur_trace;
-
-	pthread_mutex_lock(&mutex_route);
-	cur_trace = routes[ship_id].trace;
-	is_flip = routes[ship_id].flip;
-	pthread_mutex_unlock(&mutex_route);
-
-	make_array_trace(cur_trace, mytrace, is_flip, obj);
-	index_objective =  find_index(mytrace, obj);
-	
-	pthread_mutex_lock(&mutex_route);
-	routes[ship_id].index = 0;
-	routes[ship_id].last_index = index_objective;
-	pthread_mutex_unlock(&mutex_route);
-}
-
-void reverse_array(triple trace[X_PORT * Y_PORT], int last_index)
-{
-int i;
-triple aux;
-int size = last_index;
-	for(i = 0; i < size / 2; ++i)
-	{
-		aux = trace[i];
-		trace[i] = trace[last_index];
-		trace[last_index] = aux;
-		last_index --;
-	}
-}
-
-void make_array_trace(BITMAP * t, triple trace[X_PORT * Y_PORT], bool flip, int obj)
-{
-int color;
-int index = 0;
-int i, j;
-int last_index;
-for (j = PORT_BMP_H; j > 0; --j)   
-	{
-		if (flip)
-		{
-			for (i = PORT_BMP_W; i > 0 ; --i)
-			{
-				color = getpixel(t, i, j);
-				if (color == 0 || color == makecol(255, 0, 0))
-				{
-					trace[index] = make_triple(i, j , color);
-					index++;
-				}
-			}
-		}
-		else
-		{	
-			for (i = 0; i < PORT_BMP_W; ++i)
-			{
-				int color = getpixel(t, i, j);
-				if (color == 0 || color == (makecol(255,0,0)))
-				{
-					trace[index] = make_triple(i, j, color);
-					index++;
-				}
-			}
-		}
-	}
-	last_index = --index;
-
-	if (obj == Y_EXIT)
-		reverse_array(trace, last_index);
-}
-
+//	Given the coordinates x_cur, y_cur and the angle g_cur. It return true if 
+//	detects a color different from SEA_COLOR between that position and a range.
 bool check_forward(float x_cur, float y_cur, float g_cur)
 {
-float x, y, j;
-int color;
+float x, y;	//	coordinates of the radius
+float j;	//	length of the radius that is the range length
+int color;	//	color detected over the map
 
 	for (j = (YSHIP/2) + 2; j < 130; ++j )
 	{
@@ -333,23 +294,85 @@ int color;
 
 		if ((color != SEA_COLOR && color != -1))
 		{
-			return true; 		
+			return true;
 		}
 	}	
 	
  	return false;
 }
 
-bool check_position(float y_ship, int y)
+//	Given the ship id, the array of triples and if it must curb, it updates the
+//	x, y coordinates of the ship and its inclination. To implement a smooth 
+//	behaviour the ship attributes are updates in according to a low-pass filter
+void follow_track_frw(int id, triple mytrace[X_PORT * Y_PORT], bool curb)
 {
-	return fabs(y_ship - y) <= EPSILON;
+	float p = 0.02;	//	low-pass filter parameter
+	float des;		//	indicates how much the ship will move
+	float acc;		//	accumulator of distances
+	float d_obj;	//	indicates the distance between the ship and the target
+	int red = makecol(255, 0, 0);
+	int i, index, last_index;
+
+	pthread_mutex_lock(&mutex_route);
+	i = routes[id].index;	//	index of the position of the ship on the trace	
+	last_index = routes[id].last_index;	//	indicates last index of the trace
+	pthread_mutex_unlock(&mutex_route);
+	
+	//	if curb is true last_index = current index
+	last_index = (curb) ? i : last_index;
+	
+	pthread_mutex_lock(&mutex_fleet);
+	d_obj = distance_vector(fleet[id].x, fleet[id].y, mytrace[last_index].x, 
+												mytrace[last_index].y);
+
+	//	set the min velocity needed to reach the target
+	fleet[id].vel = MIN((d_obj) * p, fleet[id].vel);
+	fleet[id].vel = MIN(MAX_VEL, fleet[id].vel);
+	
+	if (mytrace[i].color == red) { 	//	if true slow down
+
+		fleet[id].vel -= (fleet[id].vel - MIN_VEL) * p;
+	} else {
+
+		fleet[id].vel += p / 2;	//	constant acceleration factor
+	}
+
+	des = fleet[id].vel * PERIOD;
+	acc = distance_vector(fleet[id].x, fleet[id].y, mytrace[i].x, mytrace[i].y);
+
+	//	stop when the the sum of the distances between the points in the array
+	//	reach the amount des
+	while (des > acc){	
+
+		i += 1;					//	new index of the array of triple
+		acc += distance_vector(fleet[id].x, fleet[id].y, mytrace[i].x, 
+																mytrace[i].y);
+	}
+	index = MIN(i, last_index);	//	check that i does not exceed the last index
+
+	//	updates the coordinates of the ship considering the low-pass filter
+	fleet[id].x = p * (mytrace[index].x ) + (1 - p) * (fleet[id].x);
+	fleet[id].y = p * (mytrace[index].y ) + (1 - p) * (fleet[id].y);
+
+	if (!curb)
+	{
+		//	update the inclination of the ship
+		grade_filter(id, index, mytrace);
+	}
+
+	pthread_mutex_unlock(&mutex_fleet);
+
+	//	updates the index of the position of the ship on the trace
+	pthread_mutex_lock(&mutex_route);
+	routes[id].index = index;
+	pthread_mutex_unlock(&mutex_route);
 }
 
-
+//	Given the ship id, the array of triple and its index, update the inclination
+//	of the ship. The updating is affected by a low-pass filter.
 void grade_filter(int id, int i, triple mytrace[X_PORT * Y_PORT])
 {
-float grade_epsilon = 0.02;
-float p = powf(M_E,(-0.115129 * PERIOD));
+float p = 0.055;	//	low-pass filter factor
 float grade = p * (degree_rect(fleet[id].x, fleet[id].y, mytrace[i].x,
 						 mytrace[i].y)) + (1 - p) * (fleet[id].traj_grade);
 
@@ -357,115 +380,108 @@ float grade = p * (degree_rect(fleet[id].x, fleet[id].y, mytrace[i].x,
 
 }
 
+//	rates the angular coefficient (in rad) of the line passing between 2 points
+float degree_rect(float x1, float y1, float x2, float y2)
+{   
+	float angular_coefficient = ((y2 - y1) / (x2 - x1));
+	float degree = atanf(angular_coefficient);
 
-void follow_track_frw(int id, triple mytrace[X_PORT * Y_PORT], bool restrain)
-{
-	float p = 0.02;
-	float des;
-	float acc;
-	float d_obj;
-	int red = makecol(255, 0, 0);
-	int i, index, last_index;
-
-	pthread_mutex_lock(&mutex_route);
-	i = routes[id].index;
-	last_index = routes[id].last_index;
-	pthread_mutex_unlock(&mutex_route);
-
-	last_index = (restrain) ? i : last_index;
-	
-	pthread_mutex_lock(&mutex_fleet);
-	d_obj = distance_vector(fleet[id].x, fleet[id].y, mytrace[last_index].x, 
-												mytrace[last_index].y);
-	fleet[id].vel = MIN((d_obj / 2) * p, fleet[id].vel);
-	fleet[id].vel = MIN(MAX_VEL, fleet[id].vel);
-	
-	if (mytrace[i].color == red) {
-		fleet[id].vel -= (fleet[id].vel - MIN_VEL) * p;
-	} else {
-		fleet[id].vel += (MAX_VEL - fleet[id].vel) * p;
-	}
-
-	des = fleet[id].vel * PERIOD;
-	acc = distance_vector(fleet[id].x, fleet[id].y, mytrace[i].x, mytrace[i].y);
-
-	while (des > acc)
-	{
-		i += 1;
-		acc += distance_vector(fleet[id].x, fleet[id].y, mytrace[i].x, 
-																mytrace[i].y);
-	}
-	index = MIN(i, last_index);
-
-	fleet[id].x = p * (mytrace[index].x ) + (1 - p) * (fleet[id].x);
-	fleet[id].y = p * (mytrace[index].y ) + (1 - p) * (fleet[id].y);
-
-	if (!restrain)
-	{
-		grade_filter(id, index, mytrace);
-	}
-
-	pthread_mutex_unlock(&mutex_fleet);
-
-	pthread_mutex_lock(&mutex_route);
-	routes[id].index = index;
-	pthread_mutex_unlock(&mutex_route);
+	return (x2 < x1) ? degree + M_PI  : degree + 2 * M_PI;
 }
 
-void rotate90_ship(int id, float x_cur, int y1, int y2)
-{
-float aux = 10000 / PERIOD;
-	
-	if (x_cur > X_PORT)
-	{
-		pthread_mutex_lock(&mutex_fleet);
-		fleet[id].y += (y2 - y1) / aux;
-		fleet[id].traj_grade -= (M_PI / 2) / aux;
-		pthread_mutex_unlock(&mutex_fleet);
-	}
-	else
-	{
-		pthread_mutex_lock(&mutex_fleet);
-		fleet[id].y += (y2 - y1) / aux;
-		fleet[id].traj_grade += (M_PI / 2) / aux;
-		pthread_mutex_unlock(&mutex_fleet);
-	}
-}
-
-bool exit_ship(int id, float x_cur)
-{
-float aux = 1400 / PERIOD;
-	if(x_cur < X_PORT)
-	{
-		if (x_cur > -YSHIP)
-		{
-			pthread_mutex_lock(&mutex_fleet);
-			fleet[id].x -= fleet[id].vel / 2;//YSHIP / aux;
-			fleet[id].traj_grade = M_PI;
-			pthread_mutex_unlock(&mutex_fleet);
-
-			return false;
-		}
-		else return true;
-	}
-	else
-	{	if (x_cur < PORT_BMP_W + YSHIP)
-		{	
-			pthread_mutex_lock(&mutex_fleet);
-			fleet[id].x += YSHIP/ aux;
-			fleet[id].traj_grade = 2 * M_PI;
-			pthread_mutex_unlock(&mutex_fleet);
-			return false;
-		}
-		else return true;
-	}
-}
-
+//	Computes the euclidean distance of the provided points
 float distance_vector (float x1, float y1, float x2, float y2)
 {
-	return sqrtf(((x1 - x2) * (x1 - x2)) + ((y1 - y2) * (y1 - y2)));
+float distance = sqrtf(((x1 - x2) * (x1 - x2)) + ((y1 - y2) * (y1 - y2)));
+	return distance;
 }
 
+//	Given ship id and its target position, it fill mytrace calling 
+//	make_array_trace and updates the variable last_index of ship' s route.
+void compute_mytrace(int ship_id, triple mytrace[X_PORT * Y_PORT], int obj)
+{
+int index_objective;	//	indicates the index of the target in the array
+bool is_flip;			//	indicates if the trace must be flipped
+BITMAP * cur_trace;		//	current trace
+
+	pthread_mutex_lock(&mutex_route);
+	cur_trace = routes[ship_id].trace;
+	is_flip = routes[ship_id].flip;
+	pthread_mutex_unlock(&mutex_route);
+
+	make_array_trace(cur_trace, mytrace, is_flip, obj);	//	fill mytrace
+	index_objective =  find_index(mytrace, obj);
+	
+	pthread_mutex_lock(&mutex_route);
+	routes[ship_id].index = 0;	//	the ship' ll start from index 0 in the array
+	routes[ship_id].last_index = index_objective;	//	update last index route
+	pthread_mutex_unlock(&mutex_route);
+}
+
+//	Given a bitmap, an array of triple, if the bitmap must be flipped and 
+//	the target, it maps in the array of triple the bitmap.
+void make_array_trace(BITMAP * t, triple trace[X_PORT * Y_PORT], bool flip, 
+																		int obj)
+{
+
+int color;			//	color found in a specific position on the bitmap
+int index = 0;		//	index of the array
+int i, j;			//	indexes to scan the bitamp
+int last_index;		//	last index of the array
+int red = makecol(255, 0, 0);
+
+for (j = PORT_BMP_H; j > 0; --j)	//	scan from the botton of the bitmap
+	{
+		if (flip){					//	scan from the right
+			for (i = PORT_BMP_W; i > 0 ; --i) {
+
+				color = getpixel(t, i, j);
+				if (color == 0 || color == red)
+				{
+					trace[index] = make_triple(i, j , color);	//	fill array
+					index++;		// increment the array index
+				}
+			}
+		}
+		else {						//	scan from left
+			for (i = 0; i < PORT_BMP_W; ++i) {
+
+				color = getpixel(t, i, j);
+				if (color == 0 || color == red)
+				{
+					trace[index] = make_triple(i, j, color);	//	fill array
+					index++;		//	increment the array index
+				}
+			}
+		}
+	}
+	last_index = --index;
+
+	if (obj == Y_EXIT) {
+	//	it is needed to reverse the array to move the ship from top to bottom
+		reverse_array(trace, last_index);
+	}
+}
+
+//	Given an array and its last index, updates the array inverting its elements.
+void reverse_array(triple trace[X_PORT * Y_PORT], int last_index)
+{
+int i;
+triple aux;					//	auxiliar triple
+int size = last_index;		//	dimension of the array that must be reversed
+	
+	//	swap the element at position last_index with the element at position i
+	for(i = 0; i < size / 2; ++i)
+	{
+		aux = trace[i];
+		trace[i] = trace[last_index];
+		trace[last_index] = aux;
+		last_index --;
+	}
+}
+
+//	Returns the index in which the given y coordinate appears in the given array
+//	of triple. Otherwise returns -1
 int find_index(triple mytrace[X_PORT * Y_PORT], int y)
 {
 int i;
@@ -477,6 +493,59 @@ int i;
 	return -1;
 }
 
+//	Updates the position and inclination of the ship with the given id rotating
+//	and drag it down from y1 to y2.
+void rotate90_ship(int id, float x_cur, int y1, int y2)
+{
+float aux = 10000 / PERIOD;			//	number of increments
+float desired_degree = M_PI / 2;		//	final inclination of the ship
+	
+	if (x_cur > X_PORT)	//	the inclination will be decreased
+	{
+		pthread_mutex_lock(&mutex_fleet);
+		fleet[id].y += (y2 - y1) / aux;
+		fleet[id].traj_grade -= desired_degree / aux;
+		pthread_mutex_unlock(&mutex_fleet);
+	}
+	else 				//	the inclination will be increased
+	{
+		pthread_mutex_lock(&mutex_fleet);
+		fleet[id].y += (y2 - y1) / aux;
+		fleet[id].traj_grade += (M_PI / 2) / aux;
+		pthread_mutex_unlock(&mutex_fleet);
+	}
+}
+
+//	Updates position of the ship with the given id dragging it out of the screen
+bool exit_ship(int id, float x_cur)
+{
+	if(x_cur < X_PORT)			//	if the ship is to the left of the port
+	{
+		if (x_cur > -YSHIP)				//	if the ship is not  off the screen
+		{
+			pthread_mutex_lock(&mutex_fleet);
+			fleet[id].x -= fleet[id].vel / 2;
+			fleet[id].traj_grade = M_PI;
+			pthread_mutex_unlock(&mutex_fleet);
+
+			return false;
+		}
+		else return true;
+	}
+	else
+	{	if (x_cur < PORT_BMP_W + YSHIP)	//	if the ship is not  off the screen
+		{	
+			pthread_mutex_lock(&mutex_fleet);
+			fleet[id].x += fleet[id].vel / 2;
+			fleet[id].traj_grade = 2 * M_PI;
+			pthread_mutex_unlock(&mutex_fleet);
+			return false;
+		}
+		else return true;
+	}
+}
+
+//	Updates safely the request/reply values of the ship with specified id
 void update_rr(int id, int repl, int req)
 {
 	pthread_mutex_lock(&mutex_rr);
@@ -485,6 +554,7 @@ void update_rr(int id, int repl, int req)
 	pthread_mutex_unlock(&mutex_rr);
 }
 
+//	Get reply_access value associated to the given ship_id safely
 bool get_repl(int ship_id)
 {
 bool repl;
@@ -494,6 +564,7 @@ bool repl;
 	return repl;
 }
 
+//	Get request_access value associated to the given ship_id safely
 int get_req(int ship_id)
 {
 int req;
@@ -503,6 +574,7 @@ int req;
 	return req;
 }
 
+//	Creates a triple with the specied fields
 triple make_triple(float x, float y, int color)
 {
 	triple coordinates;
@@ -511,3 +583,4 @@ triple make_triple(float x, float y, int color)
 	coordinates.color = color;
 	return coordinates;
 }
+

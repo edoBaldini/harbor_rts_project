@@ -4,11 +4,11 @@
 
 #define XWIN			1400					//	width monitor
 #define YWIN			700						//	height monitor
-#define PERIOD			20//25						//	in ms
-#define DLINE			18//20						//	in ms
+#define PERIOD			25						//	in ms
+#define DLINE			20						//	in ms
 #define PRIO			10						//	priority level
 #define AUX_THREAD 		4						//	# of auxiliar threads
-#define MAX_THREADS		10						//	total number of threads
+#define MAX_THREADS		20						//	total number of threads
 #define MAX_SHIPS		MAX_THREADS - AUX_THREAD//	number of ships
 #define EPSILON			3.f						//	guardian distance to goal
 #define ENTER_NUMBER	3						//	number of entering tracks
@@ -27,8 +27,8 @@
 #define YSHIP			52			//	height ship
 #define MIN_P_TIME		20000		//	min ship parking time, in ms
 #define	MAX_P_TIME		70000		//	max ship parking time, in ms
-#define MIN_VEL			16//1			//	minimum speed
-#define	MAX_VEL			20//3			//	maximum speed
+#define MIN_VEL			1			//	minimum speed
+#define	MAX_VEL			3			//	maximum speed
 
 //-----------------------------------------------------------------------------
 // GLOBAL CONSTANTS related to the radar
@@ -92,14 +92,17 @@ typedef struct place 			// structure that identify a parking spot
 extern BITMAP * sea;						//	bitmap in which are drawn ships			
 extern BITMAP * enter_trace[3];				//	array of the ingress trace
 
-extern struct place places[PLACE_NUMBER];	//	parking places
+//	one place will be assigned to one route for a certain period of time
+extern struct place places[PLACE_NUMBER];
 extern struct ship fleet[MAX_SHIPS];		//	fleet of ship
-extern struct route routes[MAX_SHIPS];		//	routes of each ship
+extern struct route routes[MAX_SHIPS];		//	routes[i] related with fleet[i]
 
+// 	positions required by ships. request_access[i] related with fleet[i]
+extern int request_access[MAX_SHIPS];
 extern int ships_activated;					//	number of ship activated
-extern int request_access[MAX_SHIPS];		// 	positions required by ships
 
-extern bool reply_access[MAX_SHIPS];		// 	ship allowed to move or not
+//	ship allowed to move or not. reply_access[i] related with fleet[i]
+extern bool reply_access[MAX_SHIPS];
 extern bool end;							// 	true when user presses ESC
 extern bool show_routes;					// 	true when user presses SPACE BAR 
 
@@ -116,11 +119,6 @@ extern pthread_mutex_t mutex_s_activated;	//	for ship_activated
 //------------------------------------------------------------------------------
 //	COMMON FUNCTIONS
 //------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------
-//	rates the angular coefficient (in rad) of the rect passing between 2 points
-//------------------------------------------------------------------------------
-float degree_rect(float x1, float y1, float x2, float y2);
 
 //	calulate a random integer in the specified interval
 int random_in_range(int min_x, int max_x);

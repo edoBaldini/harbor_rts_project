@@ -241,23 +241,3 @@ int r_x = PORT_BMP_W - l_x - delta - (half_num_parking - 1) * (offset + delta);
 	}
 	else return -1;	//	place not found
 }
-
-//	update safe way the global variable ships_activated with the given new value
-void update_s_activated(int new)
-{
-	pthread_mutex_lock(&mutex_s_activated);
-	ships_activated = new;
-	pthread_mutex_unlock(&mutex_s_activated);
-}
-
-//	get safe way the value of the global variable ships_activated
-int get_s_activated()
-{
-int cur_s;
-	
-	pthread_mutex_lock(&mutex_s_activated);
-	cur_s = ships_activated;
-	pthread_mutex_unlock(&mutex_s_activated);
-
-	return cur_s;
-}
