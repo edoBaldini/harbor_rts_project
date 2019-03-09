@@ -25,10 +25,6 @@
 //------------------------------------------------------------------------------
 #define XSHIP			16			//	width ship  
 #define YSHIP			52			//	height ship
-#define MIN_P_TIME		20000		//	min ship parking time, in ms
-#define	MAX_P_TIME		70000		//	max ship parking time, in ms
-#define MIN_VEL			10			//	minimum speed
-#define	MAX_VEL			20			//	maximum speed
 
 //------------------------------------------------------------------------------
 //	POSITION GLOBAL CONSTANTS

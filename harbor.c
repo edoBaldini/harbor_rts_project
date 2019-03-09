@@ -677,6 +677,7 @@ int i;
 int radar_pos = PORT_BMP_W + 10;	//	radar spaced 10 from the map
 int white = makecol(255, 255, 255);	//	color of the radar
 bool c_end = false;					//	current value of the global variable end
+bool c_show_route = false;			//	current value of show_route
 
 	port_bmp = load_bitmap("port.bmp", NULL);
 	boat = load_bitmap("ship_c.bmp", NULL);
@@ -689,13 +690,17 @@ bool c_end = false;					//	current value of the global variable end
 		c_end = end;
 		pthread_mutex_unlock(&mutex_end);
 
+		pthread_mutex_lock(&mutex_s_route);
+		c_show_route = show_routes;
+		pthread_mutex_unlock(&mutex_s_route);
+
 		clear_to_color(sea, SEA_COLOR);
 
 		view_ships(boat);			//	shows on the screen the ships
 
 		draw_sprite(screen, port_bmp, 0, 0);
 		
-		if (show_routes)
+		if (c_show_route)
 		{
 			view_routes();			//	shows on the screen the routes
 		}
@@ -704,7 +709,7 @@ bool c_end = false;					//	current value of the global variable end
 		putpixel(screen, X_PORT, YGUARD_POS, makecol(255,0,255));
 
 		pthread_mutex_lock(&mutex_radar);
-		circle(radar, XRAD, YRAD, RMAX, white);
+		circle(radar, R_BMP_W / 2, R_BMP_H / 2, RMAX / 2, white);
 		blit(radar, screen, 0, 0,radar_pos, 0, radar->w, radar->h);
 		pthread_mutex_unlock(&mutex_radar);
 		

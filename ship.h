@@ -8,7 +8,7 @@
 //			YGUARD_POS. Then the ships can request for the next state i.e. PORT.
 //
 //	PORT:	one ship is in PORT when its request has been approved and till it
-//			reaches YPORT. Then the ship can request the next state i.e. PLACE.
+//			reaches Y_PORT. Then the ship can request the next state i.e. PLACE.
 //
 //	PLACE:	one ship is in PLACE when its request has been approved and till
 //			it's parking time doesn't elapsed. Then it can request for EGRESS.
@@ -34,19 +34,22 @@ typedef struct triple 			//	struct used to build the array of positions
 //	Manages the behavior of a single ship from its ingress to its egress
 void * ship_task(void * arg);
 
-//	Defines the behavior of a ship that has to reach the guard position
+//	Set route's last_index of the given ship with array index relative to Y_PORT
+void update_port_index(int ship_id, triple mytrace[X_PORT * Y_PORT]);
+
+//	Updates the attributes of the ship till it reaches YGUARD_POS.
 enum state reach_guard(int ship_id, triple mytrace[X_PORT * Y_PORT], 
 													ship cur_ship, bool curb);
 
-//	Defines the behavior of a ship that has to reach the port position
+//	Updates the attributes of the ship till it reaches Y_PORT.
 enum state reach_port(int ship_id, triple mytrace[X_PORT * Y_PORT], 
 													ship cur_ship, bool curb);
 
-//	Defines the behavior of a ship that has to reach the place position
+//	Updates the attributes of the ship till it reaches Y_PLACE.
 enum state reach_place(int ship_id, triple mytrace[X_PORT * Y_PORT], 
 													ship cur_ship, bool curb);
 
-//	Defines the behavior of a ship that has to reach the exit
+//	Updates the attributes of the ship till it goes outside of the map
 enum state reach_exit(int ship_id, triple mytrace[X_PORT * Y_PORT], 
 													ship cur_ship, bool curb);
 

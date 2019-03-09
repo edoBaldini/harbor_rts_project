@@ -6,11 +6,23 @@
 #include "ptask.h"
 
 //------------------------------------------------------------------------------
-//	Manages the behavior of a single ship from its ingress to its egress.
+//	SHIP GLOBAL CONSTANT
+//------------------------------------------------------------------------------
+#define MIN_P_TIME		20000		//	min ship parking time, in ms
+#define	MAX_P_TIME		70000		//	max ship parking time, in ms
+#define MIN_VEL			1			//	minimum speed
+#define	MAX_VEL			2			//	maximum speed
+
+//------------------------------------------------------------------------------
+//	Manages the behavior of a single ship from its ingress to its egress, 
+//	updating its position according with its routes and its velocity.
 //	A task is identified by an id and a single task will manage a single ship.
 //------------------------------------------------------------------------------
 void * ship_task(void * arg)
 {
+//	array of the position that the ship must reach
+int obj[4] = {YGUARD_POS, Y_PORT, Y_PLACE - YSHIP, Y_EXIT};
+int index;					//	index of the position of the ship on the trace
 int ship_id;						//	id of a ship
 enum state step = GUARD;			//	a ship starts with GUARD state
 bool curb;							//	says if the ship must brake
@@ -27,19 +39,28 @@ const int id = get_task_index(arg);	//	id of the task
 	
 	ship_id = id - AUX_THREAD;	//	computes the ship id that a task will manage
 
-	while (!c_end)					// repeat until c_end is false
+	while (!c_end)						// repeat until c_end is false
 	{
-	
 		pthread_mutex_lock(&mutex_end);
-		c_end = end;				//	update the current value of c_end
+		c_end = end;					//	update the current value of c_end
 		pthread_mutex_unlock(&mutex_end);
 
 		pthread_mutex_lock(&mutex_fleet);
-		cur_ship = fleet[ship_id];	//	udate the current values of the ship
+		cur_ship = fleet[ship_id];		//	udate the current values of the ship
 		pthread_mutex_unlock(&mutex_fleet);
+
+		pthread_mutex_lock(&mutex_route);
+		index = routes[ship_id].index;
+		pthread_mutex_unlock(&mutex_route);
 		
 		if (cur_ship.active)
 		{
+			//	if a new trace is assigned, update mytrace
+			if (index == -1)
+			{
+				compute_mytrace(ship_id, mytrace, obj[step]);
+			}
+
 			switch (step)
 			{
 				//	ship is above YGUARD_POS and tries to reach Y_PORT
@@ -58,14 +79,12 @@ const int id = get_task_index(arg);	//	id of the task
 					break;
 
 				//	ship is onset of the map and tries to reach YGUARD_POS
-				default:
-
+				default:				
 					//	true if there is another ship ahead of this on the map
 					//	this is the unique case in which curb can be true
 					curb = check_forward(cur_ship.x, cur_ship.y, 
 											cur_ship.traj_grade);
 					step = reach_guard(ship_id, mytrace, cur_ship, curb);
-
 			}
 		}
 
@@ -78,33 +97,23 @@ const int id = get_task_index(arg);	//	id of the task
 	return NULL;
 }
 
-//	Defines the behavior of a ship that has to reach the guard position.
+//	Updates the attributes of the ship till it reaches YGUARD_POS.
+//	Then set route's last_index of the ship with mytrace index linked to Y_PORT
 enum state reach_guard(int ship_id, triple mytrace[X_PORT * Y_PORT], 
 												ship cur_ship, bool curb)
 {
-int index;		//	index of the position of the ship on the trace
 int last_index;	//	index in which resides the target position in mytrace
 
 //	true when the ship will reach the YGUARD_POS
 bool guard_reached = check_position(cur_ship.y, YGUARD_POS);	
-	
-	pthread_mutex_lock(&mutex_route);
-	index = routes[ship_id].index;
-	pthread_mutex_unlock(&mutex_route);
-
-	if (index == -1)	// if index == -1 means that the ship has a new trace
-	{
-		//	fill mytrace with the positions that the ship must follow
-		compute_mytrace(ship_id, mytrace, YGUARD_POS);
-	}
 
 	if(guard_reached)
 	{
 		//	computes the last index for the next step. 
 		last_index = find_index(mytrace, Y_PORT);
-
-		pthread_mutex_lock(&mutex_route);
+		
 		//	updates the route last index with the new value
+		pthread_mutex_lock(&mutex_route);
 		routes[ship_id].last_index = last_index;
 		pthread_mutex_unlock(&mutex_route);
 
@@ -118,7 +127,7 @@ bool guard_reached = check_position(cur_ship.y, YGUARD_POS);
 	return GUARD;	//	current state
 }
 
-//	Defines the behavior of a ship that has to reach the port position
+//	Updates the attributes of the ship till it reaches Y_PORT.
 enum state reach_port(int ship_id, triple mytrace[X_PORT * Y_PORT],
 												ship cur_ship, bool curb)
 {
@@ -133,7 +142,9 @@ bool cur_repl = get_repl(ship_id);	//	current reply_access value
 			//	set safely request_access to Y_PLACE and reply_access to false
 			update_rr(ship_id, false, Y_PLACE);
 			return PLACE;	//	next state PLACE
-		} else {
+		} 
+		else 
+		{
 			//	updates the ship attributes following the array mytrace
 			follow_track_frw(ship_id, mytrace, curb);
 		}
@@ -142,8 +153,9 @@ bool cur_repl = get_repl(ship_id);	//	current reply_access value
 }
 
 //------------------------------------------------------------------------------
-//	Defines the behavior of a ship that has to reach the place position
-//	When the ship reaches its place it will remain still for a certain period
+//	Updates the attributes of the ship till it reaches Y_PLACE.
+//	When the ship reaches its place, a random parking time is set and the ship
+//	will stay in its place till the parking time will be elapsed.
 //------------------------------------------------------------------------------
 enum state reach_place(int ship_id, triple mytrace[X_PORT * Y_PORT],
 												ship cur_ship, bool curb)
@@ -168,12 +180,6 @@ bool parked = check_position(cur_ship.y, Y_PLACE - YSHIP);
 	
 	if (cur_repl)
 	{
-		if (index == -1) {
-
-			//	fill mytrace with the positions that the ship must follow
-			compute_mytrace(ship_id, mytrace, Y_PLACE - YSHIP);
-		}
-
 		if (place_reached) {
 			
 			update_rr(ship_id, cur_repl, 1);//	set safely request_access to 1
@@ -215,7 +221,14 @@ bool parked = check_position(cur_ship.y, Y_PLACE - YSHIP);
 	return PLACE;	//	current state
 }
 
-//	Defines the behavior of a ship that has to reach the exit
+//------------------------------------------------------------------------------
+//	Updates the attributes of the ship till it goes outside of the map.
+//	During the exiting the ship will follow three parts:
+//	1) The ship will be drag down, to be aligned with the trace.
+//	2) It will follow the trace and when will overcome the port will request -1.
+//	3) At the end of the trace it will be drag out of the screen and it will be 
+//	   deactivated.
+//------------------------------------------------------------------------------
 enum state reach_exit(int ship_id, triple mytrace[X_PORT * Y_PORT], 
 													ship cur_ship, bool curb)
 {
@@ -233,13 +246,7 @@ bool cur_repl = get_repl(ship_id);	//	current reply_access value
 	
 	if (cur_repl)
 	{ 
-		if (index == -1) {
-
-			//	fill mytrace with the positions that the ship must follow
-			compute_mytrace(ship_id, mytrace, Y_EXIT);
-		}
-
-		//	if the ship has not reach the first position of the array
+		//	if the ship is not aligned with the trace
 		if (cur_ship.y < mytrace[0].y) {
 
 			rotate90_ship(ship_id, cur_ship.x, Y_PLACE, mytrace[0].y + YSHIP);
