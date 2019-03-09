@@ -27,21 +27,8 @@
 #define YSHIP			52			//	height ship
 #define MIN_P_TIME		20000		//	min ship parking time, in ms
 #define	MAX_P_TIME		70000		//	max ship parking time, in ms
-#define MIN_VEL			1			//	minimum speed
-#define	MAX_VEL			3			//	maximum speed
-
-//-----------------------------------------------------------------------------
-// GLOBAL CONSTANTS related to the radar
-//------------------------------------------------------------------------------
-#define R_BMP_W			451			//	width radar
-#define R_BMP_H			451			//	height radar
-
-#define RMAX			450			//	max radius 
-#define ARES			360			// 	max alpha
-#define RSTEP			1			//	step of the radius
-#define RMIN			0			//	min radius
-#define XRAD			450			//	x radar center<
-#define YRAD			450			//	y radar center
+#define MIN_VEL			10			//	minimum speed
+#define	MAX_VEL			20			//	maximum speed
 
 //------------------------------------------------------------------------------
 //	POSITION GLOBAL CONSTANTS
@@ -49,11 +36,11 @@
 #define YGUARD_POS		610			//	y position where the ships wait
 #define X_PORT			450			//	x position of the door port
 #define Y_PORT			505			//	y postizion of the door port
+#define	Y_PLACE			253			//	y value of the places
+#define Y_EXIT			490			//	y value of the port exit
 
 #define PORT_BMP_W		900			//	width port 
 #define PORT_BMP_H		900			//	height port
-#define	Y_PLACE			253			//	y value of the places
-#define Y_EXIT			490			//	y value of the port exit
 
 //-----------------------------------------------------------------------------
 // GLOBAL STRUCTURE
@@ -131,5 +118,11 @@ void update_s_activated(int new);
 
 //	get safe way the value of the global variable ships_activated
 int get_s_activated();
+
+//	Get reply_access value associated to the given ship_id safely
+bool get_repl(int ship_id);
+
+//	Get request_access value associated to the given ship_id safely
+int get_req(int ship_id);
 
 #endif

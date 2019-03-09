@@ -5,14 +5,16 @@
 #include <stdio.h>
 #include "ptask.h"
 
+//------------------------------------------------------------------------------
 //	Manages the behavior of a single ship from its ingress to its egress.
 //	A task is identified by an id and a single task will manage a single ship.
+//------------------------------------------------------------------------------
 void * ship_task(void * arg)
 {
 int ship_id;						//	id of a ship
 enum state step = GUARD;			//	a ship starts with GUARD state
-bool curb;						//	says if the ship must brake
-bool c_end = false;							//	if true the ship terminates
+bool curb;							//	says if the ship must brake
+bool c_end = false;					//	if true the ship terminates
 ship cur_ship;						//	contains the current values of the ship
 
 //	array of triple containing the points that the ship must follow
@@ -22,8 +24,8 @@ const int id = get_task_index(arg);	//	id of the task
 	
 	set_activation(id);			// set the activation time and absolute deadline
 	
-	//	computes the id of the ship related to this task	
-	ship_id 			= id - AUX_THREAD;
+	
+	ship_id = id - AUX_THREAD;	//	computes the ship id that a task will manage
 
 	while (!c_end)					// repeat until c_end is false
 	{
@@ -80,7 +82,7 @@ const int id = get_task_index(arg);	//	id of the task
 enum state reach_guard(int ship_id, triple mytrace[X_PORT * Y_PORT], 
 												ship cur_ship, bool curb)
 {
-int index;	//	index of the position of the ship on the trace
+int index;		//	index of the position of the ship on the trace
 int last_index;	//	index in which resides the target position in mytrace
 
 //	true when the ship will reach the YGUARD_POS
@@ -131,26 +133,25 @@ bool cur_repl = get_repl(ship_id);	//	current reply_access value
 			//	set safely request_access to Y_PLACE and reply_access to false
 			update_rr(ship_id, false, Y_PLACE);
 			return PLACE;	//	next state PLACE
-		}
-		else 
-		{
+		} else {
 			//	updates the ship attributes following the array mytrace
 			follow_track_frw(ship_id, mytrace, curb);
 		}
 	}
-
 	return PORT;	//	current state
 }
 
+//------------------------------------------------------------------------------
 //	Defines the behavior of a ship that has to reach the place position
 //	When the ship reaches its place it will remain still for a certain period
+//------------------------------------------------------------------------------
 enum state reach_place(int ship_id, triple mytrace[X_PORT * Y_PORT],
 												ship cur_ship, bool curb)
 {
 
-int index;	//	index of the position of the ship on the trace
-int time_wakeup;	//	indicates when the ship has elapsed its parking time
-int parking_time;	//	period in which the ship will remain in the place
+int index;				//	index of the position of the ship on the trace
+int time_wakeup;		//	indicates when the ship has elapsed its parking time
+int parking_time;		//	period in which the ship will remain in the place
 struct timespec now;	//	current hourly
 bool cur_repl = get_repl(ship_id);	//	current reply_access value
 
@@ -168,6 +169,7 @@ bool parked = check_position(cur_ship.y, Y_PLACE - YSHIP);
 	if (cur_repl)
 	{
 		if (index == -1) {
+
 			//	fill mytrace with the positions that the ship must follow
 			compute_mytrace(ship_id, mytrace, Y_PLACE - YSHIP);
 		}
@@ -192,6 +194,7 @@ bool parked = check_position(cur_ship.y, Y_PLACE - YSHIP);
 			} else {
 
 				if (time_wakeup >= 0) {	//	if ship has elapsed its parking time
+					
 					pthread_mutex_lock(&mutex_fleet);
 					fleet[ship_id].parking = false;
 					pthread_mutex_unlock(&mutex_fleet);
@@ -204,6 +207,7 @@ bool parked = check_position(cur_ship.y, Y_PLACE - YSHIP);
 				}
 			}
 		} else {	
+			
 			//	updates the ship attributes following the array mytrace
 			follow_track_frw(ship_id, mytrace, curb);
 		}
@@ -230,12 +234,14 @@ bool cur_repl = get_repl(ship_id);	//	current reply_access value
 	if (cur_repl)
 	{ 
 		if (index == -1) {
+
 			//	fill mytrace with the positions that the ship must follow
 			compute_mytrace(ship_id, mytrace, Y_EXIT);
 		}
 
 		//	if the ship has not reach the first position of the array
 		if (cur_ship.y < mytrace[0].y) {
+
 			rotate90_ship(ship_id, cur_ship.x, Y_PLACE, mytrace[0].y + YSHIP);
 		}
 
@@ -264,11 +270,13 @@ bool cur_repl = get_repl(ship_id);	//	current reply_access value
 			}
 		}
 		else {
+
 			//	updates the ship attributes following the array mytrace
 			follow_track_frw(ship_id, mytrace, curb);
 		}
 
 		if (exit_reached) {
+			
 			//	set safely request_access to -1
 			update_rr(ship_id, cur_repl, -1);
 		}
@@ -276,8 +284,10 @@ bool cur_repl = get_repl(ship_id);	//	current reply_access value
 	return EGRESS;	//	current state
 }
 
+//------------------------------------------------------------------------------
 //	Given the coordinates x_cur, y_cur and the angle g_cur. It return true if 
 //	detects a color different from SEA_COLOR between that position and a range.
+//------------------------------------------------------------------------------
 bool check_forward(float x_cur, float y_cur, float g_cur)
 {
 float x, y;	//	coordinates of the radius
@@ -301,9 +311,11 @@ int color;	//	color detected over the map
  	return false;
 }
 
+//------------------------------------------------------------------------------
 //	Given the ship id, the array of triples and if it must curb, it updates the
 //	x, y coordinates of the ship and its inclination. To implement a smooth 
 //	behaviour the ship attributes are updates in according to a low-pass filter
+//------------------------------------------------------------------------------
 void follow_track_frw(int id, triple mytrace[X_PORT * Y_PORT], bool curb)
 {
 	float p = 0.02;	//	low-pass filter parameter
@@ -368,8 +380,10 @@ void follow_track_frw(int id, triple mytrace[X_PORT * Y_PORT], bool curb)
 	pthread_mutex_unlock(&mutex_route);
 }
 
+//------------------------------------------------------------------------------
 //	Given the ship id, the array of triple and its index, update the inclination
 //	of the ship. The updating is affected by a low-pass filter.
+//------------------------------------------------------------------------------
 void grade_filter(int id, int i, triple mytrace[X_PORT * Y_PORT])
 {
 float p = 0.055;	//	low-pass filter factor
@@ -383,10 +397,11 @@ float grade = p * (degree_rect(fleet[id].x, fleet[id].y, mytrace[i].x,
 //	rates the angular coefficient (in rad) of the line passing between 2 points
 float degree_rect(float x1, float y1, float x2, float y2)
 {   
-	float angular_coefficient = ((y2 - y1) / (x2 - x1));
-	float degree = atanf(angular_coefficient);
-
-	return (x2 < x1) ? degree + M_PI  : degree + 2 * M_PI;
+	float a_c = ((y2 - y1) / (x2 - x1));		//	angular coefficient in grade
+	float degree = atanf(a_c);					//	angular coefficient in rad
+	float offset = (x2 < x1) ? M_PI : 2 * M_PI;	//	needed to direct the bow
+	
+	return degree + offset;
 }
 
 //	Computes the euclidean distance of the provided points
@@ -396,8 +411,10 @@ float distance = sqrtf(((x1 - x2) * (x1 - x2)) + ((y1 - y2) * (y1 - y2)));
 	return distance;
 }
 
+//------------------------------------------------------------------------------
 //	Given ship id and its target position, it fill mytrace calling 
 //	make_array_trace and updates the variable last_index of ship' s route.
+//------------------------------------------------------------------------------
 void compute_mytrace(int ship_id, triple mytrace[X_PORT * Y_PORT], int obj)
 {
 int index_objective;	//	indicates the index of the target in the array
@@ -418,8 +435,10 @@ BITMAP * cur_trace;		//	current trace
 	pthread_mutex_unlock(&mutex_route);
 }
 
+//------------------------------------------------------------------------------
 //	Given a bitmap, an array of triple, if the bitmap must be flipped and 
 //	the target, it maps in the array of triple the bitmap.
+//------------------------------------------------------------------------------
 void make_array_trace(BITMAP * t, triple trace[X_PORT * Y_PORT], bool flip, 
 																		int obj)
 {
@@ -480,8 +499,10 @@ int size = last_index;		//	dimension of the array that must be reversed
 	}
 }
 
+//------------------------------------------------------------------------------
 //	Returns the index in which the given y coordinate appears in the given array
 //	of triple. Otherwise returns -1
+//------------------------------------------------------------------------------
 int find_index(triple mytrace[X_PORT * Y_PORT], int y)
 {
 int i;
@@ -493,8 +514,10 @@ int i;
 	return -1;
 }
 
+//------------------------------------------------------------------------------
 //	Updates the position and inclination of the ship with the given id rotating
 //	and drag it down from y1 to y2.
+//------------------------------------------------------------------------------
 void rotate90_ship(int id, float x_cur, int y1, int y2)
 {
 float aux = 10000 / PERIOD;			//	number of increments
@@ -552,26 +575,6 @@ void update_rr(int id, int repl, int req)
 	reply_access[id] = repl;
 	request_access[id] = req;
 	pthread_mutex_unlock(&mutex_rr);
-}
-
-//	Get reply_access value associated to the given ship_id safely
-bool get_repl(int ship_id)
-{
-bool repl;
-	pthread_mutex_lock(&mutex_rr);
-	repl = reply_access[ship_id];
-	pthread_mutex_unlock(&mutex_rr);
-	return repl;
-}
-
-//	Get request_access value associated to the given ship_id safely
-int get_req(int ship_id)
-{
-int req;
-	pthread_mutex_lock(&mutex_rr);
-	req = request_access[ship_id];
-	pthread_mutex_unlock(&mutex_rr);
-	return req;
 }
 
 //	Creates a triple with the specied fields

@@ -25,11 +25,31 @@ void update_s_activated(int new)
 //	get safe way the value of the global variable ships_activated
 int get_s_activated()
 {
-int cur_s;
+int n_ships;	
 	
 	pthread_mutex_lock(&mutex_s_activated);
-	cur_s = ships_activated;
+	n_ships = ships_activated;
 	pthread_mutex_unlock(&mutex_s_activated);
 
-	return cur_s;
+	return n_ships;
+}
+
+//	Get reply_access value associated to the given ship_id safely
+bool get_repl(int ship_id)
+{
+bool repl;
+	pthread_mutex_lock(&mutex_rr);
+	repl = reply_access[ship_id];
+	pthread_mutex_unlock(&mutex_rr);
+	return repl;
+}
+
+//	Get request_access value associated to the given ship_id safely
+int get_req(int ship_id)
+{
+int req;
+	pthread_mutex_lock(&mutex_rr);
+	req = request_access[ship_id];
+	pthread_mutex_unlock(&mutex_rr);
+	return req;
 }
