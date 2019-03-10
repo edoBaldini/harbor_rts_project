@@ -10,8 +10,8 @@
 //------------------------------------------------------------------------------
 #define MIN_P_TIME		20000		//	min ship parking time, in ms
 #define	MAX_P_TIME		70000		//	max ship parking time, in ms
-#define MIN_VEL			1			//	minimum speed
-#define	MAX_VEL			2			//	maximum speed
+#define MIN_VEL			0.8			//	minimum speed
+#define	MAX_VEL			1.5			//	maximum speed
 //------------------------------------------------------------------------------
 //	Manages the behavior of a single ship from its ingress to its egress, 
 //	updating its position according with its routes and its velocity.
@@ -274,11 +274,12 @@ void update_last_index(int s_id, triple mytrace[X_PORT * Y_PORT], int obj)
 //------------------------------------------------------------------------------
 bool check_forward(float x_cur, float y_cur, float g_cur)
 {
-float x, y;	//	coordinates of the radius
-float j;	//	length of the radius that is the range length
-int color;	//	color detected over the map
+float x, y;			//	coordinates of the radius
+float j;			//	length of the radius that is the range length
+int color;			//	color detected over the map
+int len_r = 80;		//	max point in which the ship can check
 
-	for (j = (YSHIP/2) + 2; j < 130; ++j )
+	for (j = (YSHIP/2) + 2; j < len_r; ++j )
 	{
 		x = x_cur + j * cos(g_cur);
 		y = y_cur + j * sin(g_cur) + (YSHIP / 2 );

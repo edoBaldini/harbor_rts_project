@@ -8,7 +8,7 @@
 #define DLINE			20						//	in ms
 #define PRIO			10						//	priority level
 #define AUX_THREAD 		4						//	# of auxiliar threads
-#define MAX_THREADS		10//20						//	total number of threads
+#define MAX_THREADS		19						//	total number of threads
 #define MAX_SHIPS		MAX_THREADS - AUX_THREAD//	number of ships
 #define EPSILON			3.f						//	guardian distance to goal
 #define ENTER_NUMBER	3						//	number of entering tracks

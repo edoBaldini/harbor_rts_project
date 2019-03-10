@@ -15,6 +15,8 @@
 #define RMIN			0			//	min radius
 #define XRAD			450			//	x radar center<
 #define YRAD			450			//	y radar center
+#define	R_PER			20			//	period of the radar task
+#define	R_DLINE 		18			//	deadline of the radar task
 //------------------------------------------------------------------------------
 // GLOBAL VARIABLES
 //------------------------------------------------------------------------------
@@ -489,7 +491,7 @@ void init(void)
 	pthread_mutex_init(&mutex_s_activated, NULL);
 
 	task_create(display, PERIOD	, DLINE, PRIO);
-	task_create(radar_task, PERIOD, DLINE, PRIO);
+	task_create(radar_task, R_PER, R_DLINE, PRIO);
 	task_create(controller_task, PERIOD, DLINE, PRIO);
 	task_create(user_task, PERIOD, DLINE, PRIO);
 }
@@ -601,7 +603,7 @@ const int id = get_task_index(arg);
 
 		alpha = a * M_PI / 180.f;   // 	from degree to radiants
 		radar_one_line(alpha);		//	scan over the radius with angle alpha
-		a += 1.5; 					//	constant increase of the angle
+		a += 1; 					//	constant increase of the angle
 
 		if (a >= 360.0)
 		{

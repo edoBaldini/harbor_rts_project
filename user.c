@@ -18,7 +18,7 @@ static struct timespec pressed;	//	time when ENTER is pressed + delay
 //------------------------------------------------------------------------------
 void button_pressed()
 {
-int delay = 500;//2000;		//	delay expressed in ms
+int delay = 1500;		//	delay expressed in ms
 char scan = 0;
 struct timespec now;	//	the present time
 int time_wakeup;		//	indicates if time pressed is expired
@@ -138,9 +138,9 @@ int index = (id % ENTER_NUMBER);	//	indicates the enter trace assigned
 	fleet[id].parking = false;
 	fleet[id].traj_grade = 3 * M_PI / 2;
 	fleet[id].x = X_PORT * index; 
-	fleet[id].y = PORT_BMP_H; 
+	fleet[id].y = XWIN; 
 	fleet[id].active = true;
-	fleet[id].vel = 0;
+	fleet[id].vel = 1;
 	pthread_mutex_unlock(&mutex_fleet);
 
 	pthread_mutex_lock(&mutex_route);	// each ship has linked a route
