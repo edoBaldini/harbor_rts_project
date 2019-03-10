@@ -11,25 +11,31 @@ CC = gcc
 #--------------------------------------------------- 
 # CFLAGS will be the options passed to the compiler 
 #---------------------------------------------------
-CFLAGS = -I. -Wall
+CFLAGS = -I. -Wall -g
 
 #--------------------------------------------------- 
 # LIBS links the libraries exploited 
 #---------------------------------------------------
-LIBS = -lpthread  -lm 
+LIBS = -lpthread -lm `allegro-config --libs`
+
+#--------------------------------------------------- 
+# OBJS objects
+#---------------------------------------------------
+OBJS = ptask.o common.o user.o ship.o
+
 #--------------------------------------------------- 
 # Dependencies 
 #---------------------------------------------------
 $(MAIN): $(MAIN).o ptask.o common.o user.o ship.o
-		$(CC) $(CFLAGS) -o $(MAIN) $(MAIN).c ptask.o common.o user.o ship.o `allegro-config --libs` $(LIBS)
+		$(CC) $(CFLAGS) -o $(MAIN) $(MAIN).c $(OBJS) $(LIBS)
 
 ptask.o: ptask.c
 		$(CC) -c ptask.c
 
-common.o:	common.c
+common.o: common.c
 		$(CC) -c common.c
 
-ship.o:	ship.c
+ship.o: ship.c
 		$(CC) -c ship.c
 
 user.o: user.c
