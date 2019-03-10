@@ -218,7 +218,7 @@ int l_x = 121;		//	distance from left side to the first place on the x axis
 int r_x = PORT_BMP_W - l_x - delta - (half_num_parking - 1) * (offset + delta);
 	
 	//	checks if mouse_y is in the range of the places
-	if (mouse_y <= Y_PLACE && mouse_y >= Y_PLACE - YSHIP)
+	if (mouse_y <= Y_PLACE + YSHIP && mouse_y >= Y_PLACE)
 	{
 		for (i = 0; i < half_num_parking; ++i)
 		{

@@ -19,7 +19,7 @@
 //	More ships at the same time can be in GUARD state.
 //	In the others state it is possible to have only one ship at a time.
 //------------------------------------------------------------------------------
-enum state {GUARD, PORT, PLACE, EGRESS};
+enum state {GUARD, PORT, PLACE, PARKED, EGRESS};
 
 typedef struct triple 			//	struct used to build the array of positions
 {
@@ -34,24 +34,23 @@ typedef struct triple 			//	struct used to build the array of positions
 //	Manages the behavior of a single ship from its ingress to its egress
 void * ship_task(void * arg);
 
-//	Set route's last_index of the given ship with array index relative to Y_PORT
-void update_port_index(int ship_id, triple mytrace[X_PORT * Y_PORT]);
-
-//	Updates the attributes of the ship till it reaches YGUARD_POS.
-enum state reach_guard(int ship_id, triple mytrace[X_PORT * Y_PORT], 
-													ship cur_ship, bool curb);
-
-//	Updates the attributes of the ship till it reaches Y_PORT.
-enum state reach_port(int ship_id, triple mytrace[X_PORT * Y_PORT], 
-													ship cur_ship, bool curb);
+//	Updates the attributes of the ship till it reaches its target.
+enum state go_2_target(int ship_id, triple mytrace[X_PORT * Y_PORT], 
+						ship cur_ship, bool curb, enum state s);
 
 //	Updates the attributes of the ship till it reaches Y_PLACE.
 enum state reach_place(int ship_id, triple mytrace[X_PORT * Y_PORT], 
 													ship cur_ship, bool curb);
 
+//	When the parking time is elapsed, wake up the ship and request to EXIT
+enum state wait_exit(int ship_id, ship cur_ship, enum state step);
+
 //	Updates the attributes of the ship till it goes outside of the map
 enum state reach_exit(int ship_id, triple mytrace[X_PORT * Y_PORT], 
 													ship cur_ship, bool curb);
+
+//	Set route's last_index of the given ship with array index relative to obj
+void update_last_index(int s_id, triple mytrace[X_PORT * Y_PORT], int obj);
 
 //------------------------------------------------------------------------------
 //	Given the coordinates x_cur, y_cur and the angles g_cur,

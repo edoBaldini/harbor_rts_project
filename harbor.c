@@ -5,7 +5,7 @@
 #include "ptask.h"
 #include "user.h"
 #include "ship.h"
-//-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 //	MACRO related to the radar
 //------------------------------------------------------------------------------
 #define R_BMP_W			451			//	width radar
@@ -261,9 +261,8 @@ bool cur_repl;	//	current reply_access value of the given ship
 		ship_to_port = id;	//	memorize the ship id that has the permission
 		printf("ship %d enters to the port\n", id);
 	}
-
 	//	if the ship has both the authorization for the port and for the place
-	else if (ship_to_port == id && ship_to_place == id)
+	if (ship_to_port == id && ship_to_place == id)
 	{
 		ship_to_port = -1;	//	the state of the port return free
 	}
@@ -400,7 +399,7 @@ bool parked;					//	true if a ship has reached a parking place
 		pthread_mutex_lock(&mutex_fleet);
 		cur_ship = fleet[i];
 		pthread_mutex_unlock(&mutex_fleet);
-		parked = check_position(cur_ship.y, Y_PLACE - YSHIP);
+		parked = check_position(cur_ship.y, Y_PLACE);
 		
 		pthread_mutex_lock(&mutex_route);
 		if (cur_ship.y >= Y_PORT)	//	check if the ship is below the Y_PORT

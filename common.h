@@ -8,7 +8,7 @@
 #define DLINE			20						//	in ms
 #define PRIO			10						//	priority level
 #define AUX_THREAD 		4						//	# of auxiliar threads
-#define MAX_THREADS		20						//	total number of threads
+#define MAX_THREADS		10//20						//	total number of threads
 #define MAX_SHIPS		MAX_THREADS - AUX_THREAD//	number of ships
 #define EPSILON			3.f						//	guardian distance to goal
 #define ENTER_NUMBER	3						//	number of entering tracks
@@ -31,14 +31,15 @@
 //------------------------------------------------------------------------------
 #define YGUARD_POS		610			//	y position where the ships wait
 #define X_PORT			450			//	x position of the door port
-#define Y_PORT			505			//	y postizion of the door port
-#define	Y_PLACE			253			//	y value of the places
+#define Y_PORT			505			//	y position of the door port
+#define	Y_PLACE			201			//	y value of the places
+#define	Y_PARKED		Y_PLACE + 1	//	position of the parking
 #define Y_EXIT			490			//	y value of the port exit
 
 #define PORT_BMP_W		900			//	width port 
 #define PORT_BMP_H		900			//	height port
 
-//-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // GLOBAL STRUCTURE
 //------------------------------------------------------------------------------
 typedef int bool;
@@ -69,7 +70,7 @@ typedef struct place 			// structure that identify a parking spot
 	bool available;				// true when a place is not assigned to a ship
 }place; 
 
-//-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // GLOBAL VARIABLES
 //------------------------------------------------------------------------------
 extern BITMAP * sea;						//	bitmap in which are drawn ships			
