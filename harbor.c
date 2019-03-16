@@ -17,36 +17,6 @@
 #define YRAD			450			//	y radar center
 #define	R_PER			20			//	period of the radar task
 #define	R_DLINE 		18			//	deadline of the radar task
-//------------------------------------------------------------------------------
-// GLOBAL VARIABLES
-//------------------------------------------------------------------------------
-BITMAP * sea;						//	bitmap in which are drawn ships	
-BITMAP * radar;						//	bitmap in which are drawn radar points
-BITMAP * enter_trace[3];			//	array of the ingress trace
-
-//	one place will be assigned to one route for a certain period of time
-struct place places[PLACE_NUMBER];
-struct ship fleet[MAX_SHIPS];		//	fleet of ship
-struct route routes[MAX_SHIPS];		//	routes[i] related with fleet[i]
-
-// 	positions required by ships. request_access[i] related with fleet[i]
-int request_access[MAX_SHIPS];
-int ships_activated = 0;			//	number of ship activated
-
-//	ship allowed to move. reply_access[i] related with fleet[i]
-bool reply_access[MAX_SHIPS];
-bool end = false;					// 	true when user presses ESC
-bool show_routes = false;			// 	true when user presses SPACE BAR 
-
-pthread_mutex_t mutex_fleet;		//	for fleet
-pthread_mutex_t mutex_route;		//	for routes
-pthread_mutex_t mutex_rr;			//	for request_acces & reply_access
-pthread_mutex_t mutex_p;			//	for places
-pthread_mutex_t mutex_sea;			//	for sea 
-pthread_mutex_t mutex_end;			//	for end
-pthread_mutex_t mutex_s_route;		//	for show_route
-pthread_mutex_t mutex_s_activated;	//	for ship_activated
-static pthread_mutex_t mutex_radar;	//	for radar
 
 //------------------------------------------------------------------------------
 //	RADAR FUNCTIONS
@@ -122,14 +92,36 @@ void * controller_task(void *arg);
 //	The display manage all the screen, and in the end will destroy the bitamps
 void * display(void *arg);
 
-int main()
-{
-	init();	//	initializes the environment
+//------------------------------------------------------------------------------
+// GLOBAL VARIABLES
+//------------------------------------------------------------------------------
+BITMAP * sea;						//	bitmap in which are drawn ships	
+static BITMAP * radar;				//	bitmap in which are drawn radar points
+BITMAP * enter_trace[3];			//	array of the ingress trace
 
-	wait_tasks();
-	allegro_exit();
-	return 0;
-}
+//	one place will be assigned to one route for a certain period of time
+struct place places[PLACE_NUMBER];
+struct ship fleet[MAX_SHIPS];		//	fleet of ship
+struct route routes[MAX_SHIPS];		//	routes[i] related with fleet[i]
+
+// 	positions required by ships. request_access[i] related with fleet[i]
+int request_access[MAX_SHIPS];
+int ships_activated = 0;			//	number of ship activated
+
+//	ship allowed to move. reply_access[i] related with fleet[i]
+bool reply_access[MAX_SHIPS];
+bool end = false;					// 	true when user presses ESC
+bool show_routes = false;			// 	true when user presses SPACE BAR 
+
+pthread_mutex_t mutex_fleet;		//	for fleet
+pthread_mutex_t mutex_route;		//	for routes
+pthread_mutex_t mutex_rr;			//	for request_acces & reply_access
+pthread_mutex_t mutex_p;			//	for places
+pthread_mutex_t mutex_sea;			//	for sea 
+pthread_mutex_t mutex_end;			//	for end
+pthread_mutex_t mutex_s_route;		//	for show_route
+pthread_mutex_t mutex_s_activated;	//	for ships_activated
+static pthread_mutex_t mutex_radar;	//	for radar
 
 //------------------------------------------------------------------------------
 // FUNCTIONS FOR RADAR
@@ -362,7 +354,7 @@ int cur_req = get_req(id);	//	current request_access value of the given ship
 void view_ships(BITMAP * boat)
 {
 int i;
-int cur_s_activated = get_s_activated();	//	current number of ships live
+int cur_s_activated = MAX_SHIPS;	//	current number of ships live
 ship cur_ship;
 float offset = (XSHIP / 2 );				//	offset to center the ship
 float actual_x;								//	actual position on x axis
@@ -392,7 +384,7 @@ void view_routes()
 {
 int i, j;
 int entrance[3] = {-1, -1, -1};	//	ships id that print the enter traces
-int cur_s_activated = get_s_activated();	//	current number of ships live
+int cur_s_activated = MAX_SHIPS;	//	current number of ships live
 ship cur_ship;
 bool parked;					//	true if a ship has reached a parking place
 
@@ -737,4 +729,13 @@ bool c_show_route = false;			//	current value of show_route
 	destroy_bitmap(sea);
 
 	return NULL;
+}
+
+int main()
+{
+	init();	//	initializes the environment
+
+	wait_tasks();
+	allegro_exit();
+	return 0;
 }

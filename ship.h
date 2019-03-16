@@ -2,6 +2,25 @@
 #define SHIP_H
 
 //------------------------------------------------------------------------------
+//	SHIP FUNCTIONS:	manage the behaviour of a ship from ingress to egress.
+//
+//	A ship will follow the traces loaded in its route. Each trace will be turned
+//	in an array of positions. Depending on the velocity and the distance to the 
+//	target the ship will assume a position in that array till reach the target.
+//
+//	It will follow in total 3 traces:
+//	- first, to reach the access port position and in that position it assume
+//		the PLACE state
+//	- second, to reach the assigned place, and it will assume the EGRESS state
+//	- third, to exit.
+//	
+//	A ship starts in GUARD state where its velocity depends on the detection
+//	of others ships ahead in the sea to avoid clashes. Once reached the 
+//	YGUARD_POS the ships will move one at a time, assuming PORT state, and the 
+//	detection ability will be no longer necessary.
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
 //	States that a ship must follow to enter and exit the port.
 //
 //	GUARD: 	all the ships are in GUARD at the beginning and till they reach  

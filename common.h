@@ -2,6 +2,11 @@
 #define HARBOR_H
 #include <allegro.h>
 
+//------------------------------------------------------------------------------
+//	COMMON:	contains the constants, the data structures, the variables and the
+//	functions that are in common with others file.
+//------------------------------------------------------------------------------
+
 #define XWIN			1400					//	width monitor
 #define YWIN			700						//	height monitor
 #define PERIOD			25						//	in ms
@@ -14,6 +19,7 @@
 #define ENTER_NUMBER	3						//	number of entering tracks
 #define	PLACE_NUMBER	8						//	number of parking
 #define	SEA_COLOR 		makecol(0,85,165) 		//	background color
+
 //------------------------------------------------------------------------------
 //	FOR BOOLEAN DEFINITION
 //------------------------------------------------------------------------------
@@ -33,7 +39,7 @@
 #define X_PORT			450			//	x position of the door port
 #define Y_PORT			505			//	y position of the door port
 #define	Y_PLACE			201			//	y value of the places
-#define	Y_PARKED		Y_PLACE + 1	//	position of the parking
+#define	Y_PARKED		Y_PLACE - 1	//	y value of a parked ship
 #define Y_EXIT			490			//	y value of the port exit
 
 #define PORT_BMP_W		900			//	width port 

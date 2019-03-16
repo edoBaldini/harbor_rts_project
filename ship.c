@@ -8,104 +8,10 @@
 //------------------------------------------------------------------------------
 //	SHIP GLOBAL CONSTANT
 //------------------------------------------------------------------------------
-#define MIN_P_TIME		20000		//	min ship parking time, in ms
-#define	MAX_P_TIME		70000		//	max ship parking time, in ms
+#define MIN_P_TIME		360000		//	min ship parking time, in ms
+#define	MAX_P_TIME		370000		//	max ship parking time, in ms
 #define MIN_VEL			0.8			//	minimum speed
 #define	MAX_VEL			1.5			//	maximum speed
-//------------------------------------------------------------------------------
-//	Manages the behavior of a single ship from its ingress to its egress, 
-//	updating its position according with its routes and its velocity.
-//	A task is identified by an id and a single task will manage a single ship.
-//------------------------------------------------------------------------------
-void * ship_task(void * arg)
-{
-//	array of the position that the ship must reach
-int obj[5] = {YGUARD_POS, Y_PORT, Y_PLACE, Y_PARKED,Y_EXIT};
-int s_id;						//	id of a ship
-int last_index;
-enum state step = GUARD;			//	a ship starts with GUARD state
-bool curb;							//	says if the ship must brake
-bool c_end = false;					//	if true the ship terminates
-bool cur_repl;						//	current reply_access value
-ship cur_ship;						//	contains the current values of the ship
-
-//	array of triple containing the points that the ship must follow
-triple mytrace[X_PORT * Y_PORT];
-struct timespec now;				//	current hourly
-const int id = get_task_index(arg);	//	id of the task
-	
-	set_activation(id);			// set the activation time and absolute deadline
-	
-	
-	s_id = id - AUX_THREAD;	//	computes the ship id that a task will manage
-
-	while (!c_end)						// repeat until c_end is false
-	{
-		pthread_mutex_lock(&mutex_end);
-		c_end = end;					//	update the current value of c_end
-		pthread_mutex_unlock(&mutex_end);
-
-		pthread_mutex_lock(&mutex_fleet);
-		cur_ship = fleet[s_id];		//	udate the current values of the ship
-		pthread_mutex_unlock(&mutex_fleet);
-
-		cur_repl = get_repl(s_id);	
-		
-		if (cur_ship.active)
-		{
-
-			compute_mytrace(s_id, mytrace, obj[step]);
-
-			switch (step)
-			{
-				//	ship is above YGUARD_POS and tries to reach Y_PORT
-				case PORT:	
-					if (cur_repl)
-						step = go_2_target(s_id, mytrace, cur_ship, curb, PORT);
-					break;
-
-				//	ship is above Y_PORT and tries to reach Y_PLACE
-				case PLACE:
-					if (cur_repl)
-						step = reach_place(s_id, mytrace, cur_ship, false);
-					break;
-
-				//	ship is parked and waits for exit
-				case PARKED:
-					step = wait_exit(s_id, cur_ship, PARKED);
-					break;
-
-				//	ship has terminated its parking time and tries to exit
-				case EGRESS:
-					if (cur_repl)
-						step = reach_exit(s_id, mytrace, cur_ship, false);
-					break;
-
-				//	ship is onset of the map and tries to reach YGUARD_POS
-				default:				
-					//	true if there is another ship ahead of this on the map
-					//	this is the unique case in which curb can be true
-					curb = check_forward(cur_ship.x, cur_ship.y, 
-											cur_ship.traj_grade);
-
-					step = go_2_target(s_id, mytrace, cur_ship, curb, GUARD);
-
-					if (step == PORT)	//	true when ship has reached Y_PORT
-					{
-						//	since trace will not change must change last_index
-						update_last_index(s_id, mytrace, obj[step]);
-					}
-			}
-		}
-
-		if (deadline_miss(id))
-		{   
-			printf("%d) deadline missed! ship\n", id);
-		}
-		wait_for_activation(id);
-	}
-	return NULL;
-}
 
 //	Updates the attributes of the ship till it reaches its target.
 enum state go_2_target(int ship_id, triple mytrace[X_PORT * Y_PORT], 
@@ -577,3 +483,97 @@ triple make_triple(float x, float y, int color)
 	return coordinates;
 }
 
+//------------------------------------------------------------------------------
+//	Manages the behavior of a single ship from its ingress to its egress, 
+//	updating its position according with its routes and its velocity.
+//	A task is identified by an id and a single task will manage a single ship.
+//------------------------------------------------------------------------------
+void * ship_task(void * arg)
+{
+//	array of the position that the ship must reach
+int obj[5] = {YGUARD_POS, Y_PORT, Y_PLACE, Y_PARKED,Y_EXIT};
+int s_id;						//	id of a ship
+int last_index;
+enum state step = GUARD;			//	a ship starts with GUARD state
+bool curb;							//	says if the ship must brake
+bool c_end = false;					//	if true the ship terminates
+bool cur_repl;						//	current reply_access value
+ship cur_ship;						//	contains the current values of the ship
+
+//	array of triple containing the points that the ship must follow
+triple mytrace[X_PORT * Y_PORT];
+struct timespec now;				//	current hourly
+const int id = get_task_index(arg);	//	id of the task
+	
+	set_activation(id);			// set the activation time and absolute deadline
+	
+	
+	s_id = id - AUX_THREAD;	//	computes the ship id that a task will manage
+
+	while (!c_end)						// repeat until c_end is false
+	{
+		pthread_mutex_lock(&mutex_end);
+		c_end = end;					//	update the current value of c_end
+		pthread_mutex_unlock(&mutex_end);
+
+		pthread_mutex_lock(&mutex_fleet);
+		cur_ship = fleet[s_id];		//	udate the current values of the ship
+		pthread_mutex_unlock(&mutex_fleet);
+
+		cur_repl = get_repl(s_id);	
+		
+		if (cur_ship.active)
+		{
+
+			compute_mytrace(s_id, mytrace, obj[step]);
+
+			switch (step)
+			{
+				//	ship is above YGUARD_POS and tries to reach Y_PORT
+				case PORT:	
+					if (cur_repl)
+						step = go_2_target(s_id, mytrace, cur_ship, curb, PORT);
+					break;
+
+				//	ship is above Y_PORT and tries to reach Y_PLACE
+				case PLACE:
+					if (cur_repl)
+						step = reach_place(s_id, mytrace, cur_ship, false);
+					break;
+
+				//	ship is parked and waits for exit
+				case PARKED:
+					step = wait_exit(s_id, cur_ship, PARKED);
+					break;
+
+				//	ship has terminated its parking time and tries to exit
+				case EGRESS:
+					if (cur_repl)
+						step = reach_exit(s_id, mytrace, cur_ship, false);
+					break;
+
+				//	ship is onset of the map and tries to reach YGUARD_POS
+				default:				
+					//	true if there is another ship ahead of this on the map
+					//	this is the unique case in which curb can be true
+					curb = check_forward(cur_ship.x, cur_ship.y, 
+											cur_ship.traj_grade);
+
+					step = go_2_target(s_id, mytrace, cur_ship, curb, GUARD);
+
+					if (step == PORT)	//	true when ship has reached Y_PORT
+					{
+						//	since trace will not change must change last_index
+						update_last_index(s_id, mytrace, obj[step]);
+					}
+			}
+		}
+
+		if (deadline_miss(id))
+		{   
+			printf("%d) deadline missed! ship\n", id);
+		}
+		wait_for_activation(id);
+	}
+	return NULL;
+}
