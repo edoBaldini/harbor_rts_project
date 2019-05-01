@@ -8,8 +8,8 @@
 //------------------------------------------------------------------------------
 //	SHIP GLOBAL CONSTANT
 //------------------------------------------------------------------------------
-#define MIN_P_TIME		360000		//	min ship parking time, in ms
-#define	MAX_P_TIME		370000		//	max ship parking time, in ms
+#define MIN_P_TIME		3000		//	min ship parking time, in ms
+#define	MAX_P_TIME		240000		//	max ship parking time, in ms
 #define MIN_VEL			0.8			//	minimum speed
 #define	MAX_VEL			1.5			//	maximum speed
 

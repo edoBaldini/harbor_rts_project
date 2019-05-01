@@ -50,9 +50,6 @@ typedef struct triple 			//	struct used to build the array of positions
 //	SHIP FUNCTIONS
 //------------------------------------------------------------------------------
 
-//	Manages the behavior of a single ship from its ingress to its egress
-void * ship_task(void * arg);
-
 //	Updates the attributes of the ship till it reaches its target.
 enum state go_2_target(int ship_id, triple mytrace[X_PORT * Y_PORT], 
 						ship cur_ship, bool curb, enum state s);
@@ -133,5 +130,8 @@ void update_rr(int id, int repl, int req);
 
 //	Creates a triple with the specied fields
 triple make_triple(float x, float y, int color);
+
+//	Manages the behavior of a single ship from its ingress to its egress
+void * ship_task(void * arg);
 
 #endif

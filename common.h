@@ -14,7 +14,7 @@
 #define PRIO			10						//	priority level
 #define AUX_THREAD 		4						//	# of auxiliar threads
 #define MAX_THREADS		19						//	total number of threads
-#define MAX_SHIPS		MAX_THREADS - AUX_THREAD//	number of ships
+#define MAX_SHIPS		MAX_THREADS - AUX_THREAD	//	number of ships
 #define EPSILON			3.f						//	guardian distance to goal
 #define ENTER_NUMBER	3						//	number of entering tracks
 #define	PLACE_NUMBER	8						//	number of parking
@@ -52,7 +52,7 @@ typedef int bool;
 
 typedef struct ship 				
 {
-	float x, y;					//	coordinates
+	float x, y;					//	location coordinates
 	float traj_grade; 			//	inclination angle
 	float vel;					//	speed
 	struct timespec p_time;		//	parking time
@@ -62,19 +62,19 @@ typedef struct ship
 
 typedef struct route 			// struct related to ship identifying its route
 {
-	BITMAP * trace;				// trace that the ship must follow
-	bool flip;					// if the trace must be flipped
-	int index;					// position along the trace
-	int last_index;				// last position
+	BITMAP * trace;				//	trace that the ship must follow
+	bool flip;					//	if the trace must be flipped
+	int index;					//	position along the trace
+	int last_index;				//	last position
 }route;
 
-typedef struct place 			// structure that identify a parking spot
+typedef struct place 			//	structure that identify a parking spot
 {
 	BITMAP * enter_trace;		
 	BITMAP * exit_trace;
-	int ship_id;				// ship assigned to a specific place
-	bool available;				// true when a place is not assigned to a ship
-}place; 
+	int ship_id;				//	ship assigned to a specific place
+	bool available;				//	true when a place is not assigned to a ship
+}place;
 
 //------------------------------------------------------------------------------
 // GLOBAL VARIABLES
@@ -82,7 +82,7 @@ typedef struct place 			// structure that identify a parking spot
 extern BITMAP * sea;						//	bitmap in which are drawn ships			
 extern BITMAP * enter_trace[3];				//	array of the ingress trace
 
-//	one place will be assigned to one route for a certain period of time
+//	one place will be assigned to one ship for a certain period of time
 extern struct place places[PLACE_NUMBER];
 extern struct ship fleet[MAX_SHIPS];		//	fleet of ship
 extern struct route routes[MAX_SHIPS];		//	routes[i] related with fleet[i]
@@ -110,22 +110,22 @@ extern pthread_mutex_t mutex_s_activated;	//	for ship_activated
 //	COMMON FUNCTIONS
 //------------------------------------------------------------------------------
 
-//	calulate a random integer in the specified interval
+//	calulates a random integer in the specified interval
 int random_in_range(int min_x, int max_x);
 
-//	check if the two position differs for a tolerant space epsilon
+//	checks if the two positions differ for a tolerant space epsilon
 bool check_position(float y_ship, int y);
 
-//	update safe way the global variable ships_activated with the given new value
+//	safely updates the global variable ships_activated with the given new value
 void update_s_activated(int new);
 
 //	get safe way the value of the global variable ships_activated
 int get_s_activated();
 
-//	Get reply_access value associated to the given ship_id safely
+//	get reply_access value associated to the given ship_id safely
 bool get_repl(int ship_id);
 
-//	Get request_access value associated to the given ship_id safely
+//	get request_access value associated to the given ship_id safely
 int get_req(int ship_id);
 
 #endif

@@ -203,8 +203,10 @@ bool reassigned = false;
 	}
 }
 
+//------------------------------------------------------------------------------
 //	identifies the place id clicked by the user. Otherwise returns -1.
 //	It exploits the global variable mouse_y & mouse_x to identify the place id.
+//------------------------------------------------------------------------------
 int click_place()
 {
 int i;

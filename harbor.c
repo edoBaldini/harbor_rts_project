@@ -5,6 +5,7 @@
 #include "ptask.h"
 #include "user.h"
 #include "ship.h"
+
 //------------------------------------------------------------------------------
 //	MACRO related to the radar
 //------------------------------------------------------------------------------
@@ -32,7 +33,10 @@ void radar_one_line(float alpha);
 //	CONTROLLER FUNCTIONS
 //------------------------------------------------------------------------------
 
-//	set the attributes of the route linked to the given ship with the input data
+//------------------------------------------------------------------------------
+//	set the attributes of the route linked to the given ship assigning the given 
+//	trace and indicating the number of the trace
+//------------------------------------------------------------------------------
 void fill_trace(int ship, int i, BITMAP * trace);
 
 //------------------------------------------------------------------------------
@@ -99,7 +103,7 @@ BITMAP * sea;						//	bitmap in which are drawn ships
 static BITMAP * radar;				//	bitmap in which are drawn radar points
 BITMAP * enter_trace[3];			//	array of the ingress trace
 
-//	one place will be assigned to one route for a certain period of time
+//	one place will be assigned to one ship for a certain period of time
 struct place places[PLACE_NUMBER];
 struct ship fleet[MAX_SHIPS];		//	fleet of ship
 struct route routes[MAX_SHIPS];		//	routes[i] related with fleet[i]
@@ -113,6 +117,7 @@ bool reply_access[MAX_SHIPS];
 bool end = false;					// 	true when user presses ESC
 bool show_routes = false;			// 	true when user presses SPACE BAR 
 
+// mutex for access to the global variables-------------------------------------
 pthread_mutex_t mutex_fleet;		//	for fleet
 pthread_mutex_t mutex_route;		//	for routes
 pthread_mutex_t mutex_rr;			//	for request_acces & reply_access
@@ -169,7 +174,10 @@ int white = makecol(255, 255, 255);	//	color of the point of the radar
 // FUNCTIONS FOR CONTROLLER
 //------------------------------------------------------------------------------
 
-//	set the attributes of the route linked to the given ship with the input data
+//------------------------------------------------------------------------------
+//	set the attributes of the route linked to the given ship assigning the given 
+//	trace and indicating the number of the trace
+//------------------------------------------------------------------------------
 void fill_trace(int ship_id, int i, BITMAP * trace)
 {
 	pthread_mutex_lock(&mutex_route);
@@ -180,8 +188,8 @@ void fill_trace(int ship_id, int i, BITMAP * trace)
 }
 
 //------------------------------------------------------------------------------
-//	it returns true if assigns a place's trace to the given ship. 
-//	Otherwise all the places are occupied and it returns false.
+//	it randomly choose a parking place and if the slot is free it returns true 
+//	assigning the parking place to the given ship. Otherwise returns false.
 //------------------------------------------------------------------------------
 bool assign_trace(int ship)
 {
@@ -354,7 +362,7 @@ int cur_req = get_req(id);	//	current request_access value of the given ship
 void view_ships(BITMAP * boat)
 {
 int i;
-int cur_s_activated = MAX_SHIPS;	//	current number of ships live
+int cur_s_activated = get_s_activated();	//	current number of ships live
 ship cur_ship;
 float offset = (XSHIP / 2 );				//	offset to center the ship
 float actual_x;								//	actual position on x axis
@@ -383,8 +391,8 @@ fixed actual_a;								//	actual ship angle in fixed point
 void view_routes()
 {
 int i, j;
-int entrance[3] = {-1, -1, -1};	//	ships id that print the enter traces
-int cur_s_activated = MAX_SHIPS;	//	current number of ships live
+int entrance[3] = {-1, -1, -1};		//	ships id that print the enter traces
+int cur_s_activated = get_s_activated();	//	current number of ships live
 ship cur_ship;
 bool parked;					//	true if a ship has reached a parking place
 
@@ -400,17 +408,17 @@ bool parked;					//	true if a ship has reached a parking place
 		{
 			//	if the ship has the first trace and no one has printed it yet
 			if (cur_ship.x < X_PORT && entrance[0] == -1) {	
-				entrance[0] = i;	//	notes that first trace must be printed
+				entrance[0] = i;	//	first trace must be printed
 			}
 
 			//	if the ship has the second trace and no one has printed it yet
 			if (cur_ship.x == X_PORT && entrance[1] == -1) {
-				entrance[1] = i;	//	notes that second trace must be printed
+				entrance[1] = i;	//	second trace must be printed
 			}
 			
 			//	if the ship has the third trace and no one has printed it yet
 			if (cur_ship.x > X_PORT && entrance[2] == -1) {
-				entrance[2] = i;	//	notes that third trace must be printed
+				entrance[2] = i;	//	third trace must be printed
 			}
 
 			for (j = 0; j < 3; ++j)	//	print the enter traces
@@ -463,7 +471,7 @@ void init(void)
 	clear_to_color(sea, SEA_COLOR);
 	clear_bitmap(radar);
 
-	circle(radar, R_BMP_W / 2, R_BMP_H / 2, R_BMP_H / 2, makecol(255, 255, 255));
+	circle(radar, R_BMP_W / 2, R_BMP_H / 2, R_BMP_H / 2, makecol(255, 255,255));
 	fill_places();	//	initializes the attributes related to the parking places
 
 	enter_trace[0] = load_bitmap("e1_c.bmp", NULL);
@@ -734,7 +742,6 @@ bool c_show_route = false;			//	current value of show_route
 int main()
 {
 	init();	//	initializes the environment
-
 	wait_tasks();
 	allegro_exit();
 	return 0;
